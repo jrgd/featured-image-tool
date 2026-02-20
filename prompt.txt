@@ -1,0 +1,89 @@
+# PROMPT
+
+this an html/css page + js
+this tool will create a high resolution image based on data input on the page; both the data and the image are visible
+user will input a maximum of 4 line of text
+the tool will insert the text with a custom font
+one line at atime, each line at a random angle
+without the text overlapping
+there a couple of controls on the left hand side:
+- image size in pixel (w / h)
+- text strings input (x4, one per line of text)
+- each line of text gets a random angle, that is editable
+- text color; clicking on the color swatch let's you edit it hls gradients
+- background-color
+- font-size (1 size fits all for now)
+the image is then save-able; i imagine this would be a canvas image generated on the client side (js); there should be no server-side ops
+interface should be minimalist (10px font size, monospace, B/W, no shadow, 1px solid black border, 5px margin)
+
+
+# REFINING / QUESTIONS
+
+Questions
+1. Should the angle inputs auto-update with random values when the page loads, or only when user clicks a "Generate" button?
+2. For the HLS color picker - do you want a custom gradient selector, or use <input type="color"> with JS to convert to HSL?
+3. Should there be a "Randomize Positions" button to re-roll text placements without changing text/angles?
+
+
+Answers
+1. generate button for each field; teh field remain manually editable
+2. custom gradient selector sounds great; would it be possible to change the gradient? like another gradient or even drop an image altogether to pick color from
+3. yes; we shoudl have for each line x,y input for position that can be randomized like the angle
+nb: we should ensure there is no text overlap
+
+
+Questions
+1. For the gradient - should the image upload replace the gradient entirely, or overlay the gradient on top of the image?
+2. How should the overlap warning be displayed? Red border on the affected line inputs? A visual overlay on the canvas?
+3. For x/y randomization - should it randomize within the full canvas, or stay within some padding from edges?
+
+Answers
+1. if we use an image we replace the gradient
+2. no need for warning; i assume user have eyes and will use these
+3. text shoudl remain inside the surface of the image
+
+
+
+
+# PLAN 
+
+Final Plan: Featured Image Tool
+File Structure
+Single HTML file: index.html (embedded CSS/JS)
+Layout
+- Left panel: Controls (~320px)
+- Right panel: Canvas preview (responsive, maintains aspect ratio)
+- All styling: 10px monospace, B/W, 1px solid black border, 5px margin
+Controls
+Image Settings
+- Width / Height (px) - default 1200×630
+- Font Size (px) - default 48
+- Background: Solid color / Gradient / Image upload
+Background Options
+- Type dropdown: Solid | Linear Gradient | Radial Gradient | Image
+- Color 1 (HSL picker) - primary color
+- Color 2 (HSL picker) - secondary color (for gradients)
+- Direction slider (0-360°) - for linear gradients
+- Image upload button - replaces background entirely
+Per-Line Controls (×4)
+- Text input
+- X position (px) - editable + 🎲 randomize button
+- Y position (px) - editable + 🎲 randomize button  
+- Angle (-180° to 180°) - editable + 🎲 randomize button
+- Text Color (HSL picker)
+HSL Picker UI
+- Click color swatch → opens inline HSL sliders (H: 0-360, S: 0-100%, L: 0-100%)
+- Live preview update
+Randomization
+- Each 🎲 button randomizes that specific field
+- X/Y: random position ensuring text stays within canvas bounds (with padding)
+- Angle: random angle between -180° and 180°
+Rendering
+- Canvas draws background (color/gradient/image)
+- For each text line:
+  - Save context → translate to (x,y) → rotate → draw text → restore
+- Anti-aliased, high-resolution output
+Save/Download
+- Canvas draggable to desktop
+- Right-click "Save Image As..."
+- Download button in controls

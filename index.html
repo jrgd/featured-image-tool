@@ -1,0 +1,1570 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Featured Image Tool</title>
+    <script src="https://cdn.jsdelivr.net/npm/opentype.js@1.3.4/dist/opentype.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html, body {
+            height: 100%;
+            margin: 0;
+        }
+
+        body {
+            font-family: monospace;
+            font-size: 10px;
+            background: #fff;
+            color: #000;
+            padding: 5px;
+            box-sizing: border-box;
+        }
+
+        .container {
+            display: flex;
+            gap: 5px;
+            border: 1px solid #000;
+            padding: 5px;
+            height: 100vh;
+            box-sizing: border-box;
+        }
+
+        .controls {
+            width: 320px;
+            flex-shrink: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            overflow-y: auto;
+            padding-right: 5px;
+        }
+
+        .preview {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #f0f0f0;
+            padding: 5px;
+            position: sticky;
+            top: 5px;
+            height: 100%;
+            box-sizing: border-box;
+        }
+
+        .canvas-wrapper {
+            position: relative;
+        }
+
+        .key-indicator {
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            width: 20px;
+            height: 20px;
+            background: #fff;
+            border: 1px solid #000;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: bold;
+        }
+
+        .key-indicator.active {
+            display: flex;
+        }
+
+        .control-group {
+            border: 1px solid #000;
+            padding: 5px;
+        }
+
+        .control-group h3 {
+            font-size: 10px;
+            font-weight: normal;
+            margin-bottom: 5px;
+            border-bottom: 1px solid #000;
+            padding-bottom: 2px;
+        }
+
+        .fold-icon {
+            cursor: pointer;
+            margin-right: 5px;
+            display: inline-block;
+            width: 10px;
+        }
+
+        .foldable.collapsed {
+            display: none;
+        }
+
+        .item-content.collapsed {
+            display: none;
+        }
+
+        .fold-item-icon {
+            cursor: pointer;
+            margin-right: 3px;
+            display: inline-block;
+            width: 10px;
+        }
+
+        .control-row {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            margin-bottom: 5px;
+        }
+
+        .control-row:last-child {
+            margin-bottom: 0;
+        }
+
+        label {
+            flex: 0 0 60px;
+        }
+
+        input[type="number"],
+        input[type="text"] {
+            font-family: monospace;
+            font-size: 10px;
+            border: 1px solid #000;
+            background: #fff;
+            padding: 2px 4px;
+            width: 80px;
+        }
+
+        input[type="text"] {
+            width: 140px;
+        }
+
+        select {
+            font-family: monospace;
+            font-size: 10px;
+            border: 1px solid #000;
+            background: #fff;
+            padding: 2px;
+        }
+
+        .color-swatch {
+            width: 20px;
+            height: 20px;
+            border: 1px solid #000;
+            cursor: pointer;
+            position: relative;
+        }
+
+        .hsl-editor {
+            display: none;
+            position: absolute;
+            top: 25px;
+            left: 0;
+            background: #fff;
+            border: 1px solid #000;
+            padding: 5px;
+            z-index: 100;
+            width: 150px;
+        }
+
+        .hsl-editor.active {
+            display: block;
+        }
+
+        .hsl-row {
+            display: flex;
+            align-items: center;
+            gap: 3px;
+            margin-bottom: 3px;
+        }
+
+        .hsl-row label {
+            flex: 0 0 20px;
+        }
+
+        .hsl-row input[type="range"] {
+            flex: 1;
+            height: 15px;
+            -webkit-appearance: none;
+            appearance: none;
+            background: transparent;
+            cursor: pointer;
+        }
+
+        .hsl-row input[type="range"]::-webkit-slider-runnable-track {
+            height: 1px;
+            background: #000;
+        }
+
+        .hsl-row input[type="range"]::-moz-range-track {
+            height: 1px;
+            background: #000;
+        }
+
+        .hsl-row input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 8px;
+            height: 8px;
+            background: #000;
+            border: 1px solid #fff;
+            margin-top: -4px;
+            cursor: pointer;
+        }
+
+        .hsl-row input[type="range"]::-moz-range-thumb {
+            width: 8px;
+            height: 8px;
+            background: #000;
+            border: 1px solid #fff;
+            cursor: pointer;
+        }
+
+        .hsl-row span {
+            width: 30px;
+            text-align: right;
+        }
+
+        .random-btn {
+            background: #fff;
+            border: 1px solid #000;
+            cursor: pointer;
+            font-size: 10px;
+            padding: 2px 5px;
+            min-width: 20px;
+        }
+
+        .random-btn:hover {
+            background: #000;
+            color: #fff;
+        }
+
+        .remove-btn {
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 10px;
+            float: right;
+            padding: 0 3px;
+        }
+
+        .remove-btn:hover {
+            background: #000;
+            color: #fff;
+        }
+
+        .copy-btn {
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 10px;
+            float: right;
+            padding: 0 3px;
+            margin-right: 3px;
+        }
+
+        .copy-btn:hover {
+            background: #000;
+            color: #fff;
+        }
+
+        .line-controls {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .line-row {
+            display: flex;
+            align-items: center;
+            gap: 3px;
+        }
+
+        .line-row input[type="text"] {
+            width: 100px;
+        }
+
+        .line-row input[type="number"] {
+            width: 50px;
+        }
+
+        .color-wrapper {
+            position: relative;
+        }
+
+        #canvas {
+            border: 1px solid #000;
+            max-width: 100%;
+            height: auto;
+            cursor: move;
+        }
+
+        .download-btn {
+            font-family: monospace;
+            font-size: 10px;
+            background: #fff;
+            border: 1px solid #000;
+            padding: 5px 10px;
+            cursor: pointer;
+            margin-top: 5px;
+        }
+
+        .download-btn:hover {
+            background: #000;
+            color: #fff;
+        }
+
+        .add-line-btn {
+            font-family: monospace;
+            font-size: 10px;
+            background: #fff;
+            border: 1px solid #000;
+            padding: 3px 8px;
+            cursor: pointer;
+            margin-top: 5px;
+            width: 100%;
+        }
+
+        .add-line-btn:hover {
+            background: #000;
+            color: #fff;
+        }
+
+        .button-row {
+            display: flex;
+            gap: 5px;
+            margin-top: 5px;
+        }
+
+        .drop-zone {
+            border: 1px dashed #000;
+            padding: 8px;
+            text-align: center;
+            cursor: pointer;
+            margin-top: 5px;
+            font-size: 9px;
+        }
+
+        .drop-zone.dragover {
+            background: #000;
+            color: #fff;
+        }
+
+        .help-content {
+            font-size: 9px;
+            line-height: 1.6;
+        }
+
+        .help-content div {
+            margin-bottom: 2px;
+        }
+
+        .help-credit {
+            margin-top: 8px;
+            padding-top: 8px;
+            border-top: 1px solid #000;
+            font-style: italic;
+        }
+
+        .checkbox-label {
+            display: flex;
+            align-items: center;
+            gap: 3px;
+            font-size: 10px;
+            cursor: pointer;
+            position: relative;
+        }
+
+        .checkbox-label input[type="checkbox"] {
+            cursor: pointer;
+        }
+
+        .checkbox-label .custom-tooltip {
+            display: none;
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #fff;
+            border: 1px solid #000;
+            padding: 5px 8px;
+            white-space: nowrap;
+            z-index: 10;
+            margin-bottom: 5px;
+        }
+
+        .checkbox-label:hover .custom-tooltip {
+            display: block;
+        }
+
+        .bg-image-input {
+            display: none;
+        }
+
+        .bg-image-input.active {
+            display: block;
+        }
+
+        .gradient-preview {
+            width: 100%;
+            height: 20px;
+            border: 1px solid #000;
+            margin-top: 3px;
+        }
+
+        .font-drop-zone {
+            border: 1px dashed #000;
+            padding: 8px;
+            text-align: center;
+            cursor: pointer;
+            margin-top: 3px;
+        }
+
+        .font-drop-zone.dragover {
+            background: #000;
+            color: #fff;
+        }
+
+        .font-name {
+            font-size: 9px;
+            margin-top: 3px;
+            word-break: break-all;
+        }
+
+        .orient-btn {
+            font-family: monospace;
+            font-size: 9px;
+            background: #fff;
+            border: 1px solid #000;
+            padding: 2px 5px;
+            cursor: pointer;
+        }
+
+        .orient-btn:hover {
+            background: #000;
+            color: #fff;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="controls">
+            <div class="control-group">
+                <h3>IMAGE</h3>
+                <div class="control-row">
+                    <label>WIDTH</label>
+                    <input type="number" id="imgWidth" value="600">
+                    <label>HEIGHT</label>
+                    <input type="number" id="imgHeight" value="800">
+                </div>
+                <div class="control-row">
+                    <label>ORIENT</label>
+                    <button class="orient-btn" id="orientLandscape">LAND</button>
+                    <button class="orient-btn" id="orientPortrait">PORT</button>
+                </div>
+                <div class="control-row">
+                    <label>FONT</label>
+                    <input type="number" id="fontSize" value="48">
+                    <label>px</label>
+                </div>
+                <div class="control-row">
+                    <label>FONT</label>
+                    <select id="fontFamily">
+                        <option value="monospace">monospace</option>
+                        <option value="serif">serif</option>
+                        <option value="sans-serif">sans-serif</option>
+                    </select>
+                </div>
+                <div class="control-row">
+                    <label></label>
+                    <div class="font-drop-zone" id="fontDropZone">DROP FONT FILE HERE</div>
+                    <div class="font-name" id="fontName">monospace</div>
+                </div>
+            </div>
+
+            <div class="control-group">
+                <h3>COLORS</h3>
+                <div class="control-row">
+                    <label>BG</label>
+                    <div class="color-wrapper">
+                        <div class="color-swatch" id="bgColor1Swatch"></div>
+                        <div class="hsl-editor" id="bgColor1Editor">
+                            <div class="hsl-row"><label>R</label><input type="range" id="bgColor1R" min="0" max="255"><span id="bgColor1RVal">255</span></div>
+                            <div class="hsl-row"><label>G</label><input type="range" id="bgColor1G" min="0" max="255"><span id="bgColor1GVal">255</span></div>
+                            <div class="hsl-row"><label>B</label><input type="range" id="bgColor1B" min="0" max="255"><span id="bgColor1BVal">255</span></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="control-row">
+                    <label>TEXT</label>
+                    <div class="color-wrapper">
+                        <div class="color-swatch" id="textColorSwatch"></div>
+                        <div class="hsl-editor" id="textColorEditor">
+                            <div class="hsl-row"><label>R</label><input type="range" id="textColorR" min="0" max="255"><span id="textColorRVal">0</span></div>
+                            <div class="hsl-row"><label>G</label><input type="range" id="textColorG" min="0" max="255"><span id="textColorGVal">0</span></div>
+                            <div class="hsl-row"><label>B</label><input type="range" id="textColorB" min="0" max="255"><span id="textColorBVal">0</span></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="control-group">
+                <h3><span class="fold-icon" id="textFoldIcon">−</span> TEXT</h3>
+                <div class="foldable" id="textFoldable">
+                    <div class="line-controls" id="lineControls"></div>
+                    <button class="add-line-btn" id="addLineBtn">+ ADD TEXT</button>
+                </div>
+            </div>
+
+            <div class="control-group">
+                <h3><span class="fold-icon" id="linesFoldIcon">−</span> LINES</h3>
+                <div class="foldable" id="linesFoldable">
+                    <div class="line-controls" id="linesControls"></div>
+                    <button class="add-line-btn" id="addGeometricLineBtn">+ ADD LINE</button>
+                </div>
+            </div>
+
+            <div class="button-row">
+                <button class="download-btn" id="downloadBtn">DOWNLOAD IMAGE</button>
+                <button class="download-btn" id="exportSvgBtn">EXPORT SVG</button>
+                <label class="checkbox-label" id="vectorizeLabel">
+                    <input type="checkbox" id="vectorizeText"> VECTORIZE TEXT
+                    <span class="custom-tooltip" id="vectorizeTooltip">Drop a font file first</span>
+                </label>
+            </div>
+            <div class="button-row">
+                <button class="download-btn" id="saveDesignBtn">SAVE DESIGN</button>
+            </div>
+            <div class="drop-zone" id="loadDesignZone">DROP DESIGN.JSON TO LOAD</div>
+
+            <div class="control-group">
+                <h3><span class="fold-icon" id="helpFoldIcon">+</span> 🤚 Help</h3>
+                <div class="foldable collapsed" id="helpFoldable">
+                    <div class="help-content">
+                        <div><strong>Drag:</strong> Move text/lines</div>
+                        <div><strong>x/y:</strong> Constrain to axis</div>
+                        <div><strong>r:</strong> Rotate</div>
+                        <div><strong>s:</strong> Font size (text)</div>
+                        <div><strong>l:</strong> Line length</div>
+                        <div><strong>t:</strong> Line thickness</div>
+                        <div class="help-credit">This tool evolved from an idea by Jérôme Rigaud, based on a design by Matthias Kreutzer for the UQAM Inventaire book.</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="preview">
+            <div class="canvas-wrapper">
+                <canvas id="canvas" tabindex="0"></canvas>
+                <div class="key-indicator" id="keyIndicator"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+
+        let activeEditor = null;
+        let customFontName = 'monospace';
+        let customFontData = null;
+
+        document.getElementById('fontFamily').addEventListener('change', (e) => {
+            customFontName = e.target.value;
+            customFontData = null;
+            document.getElementById('fontName').textContent = customFontName;
+            render();
+        });
+
+        const lines = [
+            { text: '', x: 200, y: 200, angle: -15 },
+            { text: '', x: 400, y: 300, angle: 10 }
+        ];
+
+        const geometricLines = [];
+
+        const bgColors = {
+            color1: { r: 255, g: 255, b: 255 }
+        };
+
+        let textColor = { r: 0, g: 0, b: 0 };
+
+        function rgbToCss(r, g, b) {
+            return `rgb(${r}, ${g}, ${b})`;
+        }
+
+        function hslToHex(h, s, l) {
+            s /= 100;
+            l /= 100;
+            const a = s * Math.min(l, 1 - l);
+            const f = n => {
+                const k = (n + h / 30) % 12;
+                const color = l - a * Math.max(Math.min(k - 3, 9 - k, 1), -1);
+                return Math.round(255 * color).toString(16).padStart(2, '0');
+            };
+            return `#${f(0)}${f(8)}${f(4)}`;
+        }
+
+        function createLineControls() {
+            const container = document.getElementById('lineControls');
+            container.innerHTML = '';
+
+            lines.forEach((line, i) => {
+                const group = document.createElement('div');
+                group.className = 'control-group';
+                group.innerHTML = `
+                    <h3><span class="fold-item-icon" data-type="text" data-index="${i}">−</span> Text ${i + 1} <button class="copy-btn" data-index="${i}">⧉</button><button class="remove-btn" data-index="${i}">✕</button></h3>
+                    <div class="item-content" data-type="text" data-index="${i}">
+                        <div class="line-row">
+                            <label>TXT</label>
+                            <input type="text" class="line-text" data-index="${i}" value="${line.text}">
+                        </div>
+                        <div class="line-row">
+                            <label>X</label>
+                            <input type="number" class="line-x" data-index="${i}" value="${line.x}">
+                            <button class="random-btn" data-field="x" data-index="${i}">♻</button>
+                        </div>
+                        <div class="line-row">
+                            <label>Y</label>
+                            <input type="number" class="line-y" data-index="${i}" value="${line.y}">
+                            <button class="random-btn" data-field="y" data-index="${i}">♻</button>
+                        </div>
+                        <div class="line-row">
+                            <label>ANG</label>
+                            <input type="number" class="line-angle" data-index="${i}" value="${line.angle}" min="-180" max="180">
+                            <button class="random-btn" data-field="angle" data-index="${i}">♻</button>
+                        </div>
+                    </div>
+                `;
+                container.appendChild(group);
+            });
+
+            container.querySelectorAll('.fold-item-icon').forEach(icon => {
+                icon.addEventListener('click', function() {
+                    const type = this.dataset.type;
+                    const index = this.dataset.index;
+                    const content = container.querySelector(`.item-content[data-type="${type}"][data-index="${index}"]`);
+                    if (content) {
+                        content.classList.toggle('collapsed');
+                        this.textContent = content.classList.contains('collapsed') ? '+' : '−';
+                    }
+                });
+            });
+
+            document.querySelectorAll('.line-text').forEach(input => {
+                input.addEventListener('input', (e) => {
+                    lines[e.target.dataset.index].text = e.target.value;
+                    render();
+                });
+            });
+
+            document.querySelectorAll('.line-x').forEach(input => {
+                input.addEventListener('input', (e) => {
+                    lines[e.target.dataset.index].x = parseInt(e.target.value) || 0;
+                    render();
+                });
+            });
+
+            document.querySelectorAll('.line-y').forEach(input => {
+                input.addEventListener('input', (e) => {
+                    lines[e.target.dataset.index].y = parseInt(e.target.value) || 0;
+                    render();
+                });
+            });
+
+            document.querySelectorAll('.line-angle').forEach(input => {
+                input.addEventListener('input', (e) => {
+                    lines[e.target.dataset.index].angle = parseInt(e.target.value) || 0;
+                    render();
+                });
+            });
+
+            document.querySelectorAll('.random-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const index = e.target.dataset.index;
+                    const field = e.target.dataset.field;
+                    randomizeField(index, field);
+                });
+            });
+
+            document.querySelectorAll('.remove-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const index = parseInt(e.target.dataset.index);
+                    lines.splice(index, 1);
+                    createLineControls();
+                    render();
+                });
+            });
+
+            document.querySelectorAll('.copy-btn:not(.geo-copy)').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const index = parseInt(e.target.dataset.index);
+                    const original = lines[index];
+                    lines.push({
+                        text: original.text,
+                        x: original.x + 20,
+                        y: original.y + 20,
+                        angle: original.angle
+                    });
+                    createLineControls();
+                    render();
+                });
+            });
+        }
+
+        function createGeometricLineControls() {
+            const container = document.getElementById('linesControls');
+            container.innerHTML = '';
+
+            geometricLines.forEach((line, i) => {
+                const group = document.createElement('div');
+                group.className = 'control-group';
+                group.innerHTML = `
+                    <h3><span class="fold-item-icon" data-type="geo" data-index="${i}">−</span> Line ${i + 1} <button class="copy-btn geo-copy" data-index="${i}">⧉</button><button class="remove-btn" data-index="${i}">✕</button></h3>
+                    <div class="item-content" data-type="geo" data-index="${i}">
+                        <div class="line-row">
+                            <label>X</label>
+                            <input type="number" class="geo-line-x" data-index="${i}" value="${line.x}">
+                            <button class="random-btn geo-random" data-field="x" data-index="${i}">♻</button>
+                        </div>
+                        <div class="line-row">
+                            <label>Y</label>
+                            <input type="number" class="geo-line-y" data-index="${i}" value="${line.y}">
+                            <button class="random-btn geo-random" data-field="y" data-index="${i}">♻</button>
+                        </div>
+                        <div class="line-row">
+                            <label>ANG</label>
+                            <input type="number" class="geo-line-angle" data-index="${i}" value="${line.angle}" min="-180" max="180">
+                            <button class="random-btn geo-random" data-field="angle" data-index="${i}">♻</button>
+                        </div>
+                        <div class="line-row">
+                            <label>LEN</label>
+                            <input type="number" class="geo-line-length" data-index="${i}" value="${line.length}">
+                        </div>
+                        <div class="line-row">
+                            <label>THK</label>
+                            <input type="number" class="geo-line-thickness" data-index="${i}" value="${line.thickness}">
+                        </div>
+                    </div>
+                `;
+                container.appendChild(group);
+            });
+
+            container.querySelectorAll('.fold-item-icon').forEach(icon => {
+                icon.addEventListener('click', function() {
+                    const type = this.dataset.type;
+                    const index = this.dataset.index;
+                    const content = container.querySelector(`.item-content[data-type="${type}"][data-index="${index}"]`);
+                    if (content) {
+                        content.classList.toggle('collapsed');
+                        this.textContent = content.classList.contains('collapsed') ? '+' : '−';
+                    }
+                });
+            });
+
+            document.querySelectorAll('.geo-line-x').forEach(input => {
+                input.addEventListener('input', (e) => {
+                    geometricLines[e.target.dataset.index].x = parseInt(e.target.value) || 0;
+                    render();
+                });
+            });
+
+            document.querySelectorAll('.geo-line-y').forEach(input => {
+                input.addEventListener('input', (e) => {
+                    geometricLines[e.target.dataset.index].y = parseInt(e.target.value) || 0;
+                    render();
+                });
+            });
+
+            document.querySelectorAll('.geo-line-angle').forEach(input => {
+                input.addEventListener('input', (e) => {
+                    geometricLines[e.target.dataset.index].angle = parseInt(e.target.value) || 0;
+                    render();
+                });
+            });
+
+            document.querySelectorAll('.geo-line-length').forEach(input => {
+                input.addEventListener('input', (e) => {
+                    geometricLines[e.target.dataset.index].length = parseInt(e.target.value) || 10;
+                    render();
+                });
+            });
+
+            document.querySelectorAll('.geo-line-thickness').forEach(input => {
+                input.addEventListener('input', (e) => {
+                    geometricLines[e.target.dataset.index].thickness = parseInt(e.target.value) || 1;
+                    render();
+                });
+            });
+
+            document.querySelectorAll('.geo-random').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const index = parseInt(e.target.dataset.index);
+                    const field = e.target.dataset.field;
+                    const width = parseInt(document.getElementById('imgWidth').value);
+                    const height = parseInt(document.getElementById('imgHeight').value);
+                    const padding = 20;
+
+                    if (field === 'x') {
+                        geometricLines[index].x = padding + Math.random() * (width - 2 * padding);
+                        document.querySelector(`.geo-line-x[data-index="${index}"]`).value = Math.round(geometricLines[index].x);
+                    } else if (field === 'y') {
+                        geometricLines[index].y = padding + Math.random() * (height - 2 * padding);
+                        document.querySelector(`.geo-line-y[data-index="${index}"]`).value = Math.round(geometricLines[index].y);
+                    } else if (field === 'angle') {
+                        geometricLines[index].angle = Math.round(Math.random() * 360 - 180);
+                        document.querySelector(`.geo-line-angle[data-index="${index}"]`).value = geometricLines[index].angle;
+                    }
+                    render();
+                });
+            });
+
+            document.querySelectorAll('.remove-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const index = parseInt(e.target.dataset.index);
+                    geometricLines.splice(index, 1);
+                    createGeometricLineControls();
+                    render();
+                });
+            });
+
+            document.querySelectorAll('.geo-copy').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const index = parseInt(e.target.dataset.index);
+                    const original = geometricLines[index];
+                    geometricLines.push({
+                        x: original.x + 20,
+                        y: original.y + 20,
+                        angle: original.angle,
+                        length: original.length,
+                        thickness: original.thickness
+                    });
+                    createGeometricLineControls();
+                    render();
+                });
+            });
+        }
+
+        function updateColorSwatches() {
+            document.getElementById('bgColor1Swatch').style.backgroundColor = rgbToCss(bgColors.color1.r, bgColors.color1.g, bgColors.color1.b);
+            document.getElementById('textColorSwatch').style.backgroundColor = rgbToCss(textColor.r, textColor.g, textColor.b);
+        }
+
+        function randomizeField(index, field) {
+            const width = parseInt(document.getElementById('imgWidth').value);
+            const height = parseInt(document.getElementById('imgHeight').value);
+            const fontSize = parseInt(document.getElementById('fontSize').value);
+            const padding = fontSize;
+
+            if (field === 'x') {
+                lines[index].x = padding + Math.random() * (width - 2 * padding);
+                document.querySelector(`.line-x[data-index="${index}"]`).value = Math.round(lines[index].x);
+            } else if (field === 'y') {
+                lines[index].y = padding + Math.random() * (height - 2 * padding);
+                document.querySelector(`.line-y[data-index="${index}"]`).value = Math.round(lines[index].y);
+            } else if (field === 'angle') {
+                lines[index].angle = Math.round(Math.random() * 360 - 180);
+                document.querySelector(`.line-angle[data-index="${index}"]`).value = lines[index].angle;
+            }
+            render();
+        }
+
+        function getTextBoundingBox(text, fontSize, angle) {
+            const width = text.length * fontSize * 0.6;
+            const height = fontSize;
+            const rad = angle * Math.PI / 180;
+            const cos = Math.abs(Math.cos(rad));
+            const sin = Math.abs(Math.sin(rad));
+            return {
+                width: width * cos + height * sin,
+                height: width * sin + height * cos
+            };
+        }
+
+        function checkOverlap(index) {
+            const width = parseInt(document.getElementById('imgWidth').value);
+            const height = parseInt(document.getElementById('imgHeight').value);
+            const fontSize = parseInt(document.getElementById('fontSize').value);
+
+            const box1 = getTextBoundingBox(lines[index].text, fontSize, lines[index].angle);
+            const x1 = lines[index].x - box1.width / 2;
+            const y1 = lines[index].y - box1.height / 2;
+
+            for (let i = 0; i < lines.length; i++) {
+                if (i === index || !lines[i].text) continue;
+                const box2 = getTextBoundingBox(lines[i].text, fontSize, lines[i].angle);
+                const x2 = lines[i].x - box2.width / 2;
+                const y2 = lines[i].y - box2.height / 2;
+
+                if (!(x1 + box1.width < x2 || x1 > x2 + box2.width ||
+                      y1 + box1.height < y2 || y1 > y2 + box2.height)) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        function render() {
+            const width = parseInt(document.getElementById('imgWidth').value);
+            const height = parseInt(document.getElementById('imgHeight').value);
+            const fontSize = parseInt(document.getElementById('fontSize').value);
+
+            canvas.width = width;
+            canvas.height = height;
+
+            ctx.fillStyle = rgbToCss(bgColors.color1.r, bgColors.color1.g, bgColors.color1.b);
+            ctx.fillRect(0, 0, width, height);
+
+            ctx.font = `${fontSize}px ${customFontName}`;
+            ctx.textBaseline = 'middle';
+            ctx.textAlign = 'center';
+
+            lines.forEach(line => {
+                if (!line.text) return;
+                ctx.save();
+                ctx.translate(line.x, line.y);
+                ctx.rotate(line.angle * Math.PI / 180);
+                ctx.fillStyle = rgbToCss(textColor.r, textColor.g, textColor.b);
+                ctx.fillText(line.text, 0, 0);
+                ctx.restore();
+            });
+
+            geometricLines.forEach(line => {
+                ctx.save();
+                ctx.translate(line.x, line.y);
+                ctx.rotate(line.angle * Math.PI / 180);
+                ctx.strokeStyle = rgbToCss(textColor.r, textColor.g, textColor.b);
+                ctx.lineWidth = line.thickness;
+                ctx.beginPath();
+                ctx.moveTo(-line.length / 2, 0);
+                ctx.lineTo(line.length / 2, 0);
+                ctx.stroke();
+                ctx.restore();
+            });
+        }
+
+        document.getElementById('imgWidth').addEventListener('input', render);
+        document.getElementById('imgHeight').addEventListener('input', render);
+        document.getElementById('fontSize').addEventListener('input', render);
+
+        document.getElementById('orientLandscape').addEventListener('click', () => {
+            document.getElementById('imgWidth').value = 800;
+            document.getElementById('imgHeight').value = 600;
+            render();
+        });
+
+        document.getElementById('orientPortrait').addEventListener('click', () => {
+            document.getElementById('imgWidth').value = 600;
+            document.getElementById('imgHeight').value = 800;
+            render();
+        });
+
+        document.getElementById('bgColor1Swatch').addEventListener('click', () => {
+            const editor = document.getElementById('bgColor1Editor');
+            if (activeEditor && activeEditor !== editor) activeEditor.classList.remove('active');
+            editor.classList.toggle('active');
+            activeEditor = editor.classList.contains('active') ? editor : null;
+        });
+
+        document.getElementById('textColorSwatch').addEventListener('click', () => {
+            const editor = document.getElementById('textColorEditor');
+            if (activeEditor && activeEditor !== editor) activeEditor.classList.remove('active');
+            editor.classList.toggle('active');
+            activeEditor = editor.classList.contains('active') ? editor : null;
+        });
+
+        ['R', 'G', 'B'].forEach(prop => {
+            document.getElementById(`bgColor1${prop}`).addEventListener('input', (e) => {
+                bgColors.color1[prop.toLowerCase()] = parseInt(e.target.value);
+                document.getElementById(`bgColor1${prop}Val`).textContent = e.target.value;
+                updateColorSwatches();
+                render();
+            });
+            document.getElementById(`textColor${prop}`).addEventListener('input', (e) => {
+                textColor[prop.toLowerCase()] = parseInt(e.target.value);
+                document.getElementById(`textColor${prop}Val`).textContent = e.target.value;
+                updateColorSwatches();
+                render();
+            });
+        });
+
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.color-wrapper') && activeEditor) {
+                activeEditor.classList.remove('active');
+                activeEditor = null;
+            }
+        });
+
+        document.getElementById('downloadBtn').addEventListener('click', () => {
+            const link = document.createElement('a');
+            link.download = 'featured-image.png';
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+        });
+
+        document.getElementById('saveDesignBtn').addEventListener('click', () => {
+            const design = {
+                width: parseInt(document.getElementById('imgWidth').value),
+                height: parseInt(document.getElementById('imgHeight').value),
+                fontSize: parseInt(document.getElementById('fontSize').value),
+                fontFamily: document.getElementById('fontFamily').value,
+                fontName: customFontName,
+                bgColor: bgColors.color1,
+                textColor: textColor,
+                lines: lines.map(line => ({
+                    text: line.text,
+                    x: line.x,
+                    y: line.y,
+                    angle: line.angle
+                })),
+                geometricLines: geometricLines.map(line => ({
+                    x: line.x,
+                    y: line.y,
+                    angle: line.angle,
+                    length: line.length,
+                    thickness: line.thickness
+                }))
+            };
+            const blob = new Blob([JSON.stringify(design, null, 2)], { type: 'application/json' });
+            const link = document.createElement('a');
+            link.download = 'design.json';
+            link.href = URL.createObjectURL(blob);
+            link.click();
+        });
+
+        document.getElementById('exportSvgBtn').addEventListener('click', async () => {
+            const width = parseInt(document.getElementById('imgWidth').value);
+            const height = parseInt(document.getElementById('imgHeight').value);
+            const fontSize = parseInt(document.getElementById('fontSize').value);
+            const vectorizeText = document.getElementById('vectorizeText').checked;
+            
+            let svgContent = `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
+    <rect width="100%" height="100%" fill="rgb(${bgColors.color1.r}, ${bgColors.color1.g}, ${bgColors.color1.b})"/>
+`;
+            
+            const rgb = `rgb(${textColor.r}, ${textColor.g}, ${textColor.b})`;
+            
+            if (vectorizeText && customFontData) {
+                try {
+                    const font = opentype.parse(customFontData);
+                    const scale = fontSize / font.unitsPerEm;
+                    
+                    for (const line of lines) {
+                        if (!line.text) continue;
+                        
+                        const path = font.getPath(line.text, 0, 0, fontSize, {
+                            hinting: true,
+                            features: {}
+                        });
+                        
+                        const bbox = path.getBoundingBox();
+                        const pathWidth = bbox.x2 - bbox.x1;
+                        const pathHeight = bbox.y2 - bbox.y1;
+                        
+                        let pathData = path.toPathData(2);
+                        const transform = `translate(${line.x - pathWidth/2}, ${line.y + pathHeight/4}) rotate(${line.angle} ${pathWidth/2} ${-pathHeight/4})`;
+                        
+                        svgContent += `    <path d="${pathData}" fill="${rgb}" transform="${transform}"/>\n`;
+                    }
+                } catch (err) {
+                    console.error('Failed to vectorize text:', err);
+                    alert('Failed to vectorize text. Using text elements instead.');
+                    
+                    for (const line of lines) {
+                        if (!line.text) continue;
+                        const transform = `translate(${line.x}, ${line.y}) rotate(${line.angle})`;
+                        const escapedText = line.text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                        svgContent += `    <text x="0" y="0" font-family="${customFontName}" font-size="${fontSize}" fill="${rgb}" text-anchor="middle" dominant-baseline="middle" transform="${transform}">${escapedText}</text>\n`;
+                    }
+                }
+            } else {
+                if (customFontName !== 'monospace') {
+                    svgContent += `    <style>
+        @font-face {
+            font-family: 'CustomFont';
+            src: url('font.ttf');
+        }
+    </style>
+`;
+                }
+                
+                for (const line of lines) {
+                    if (!line.text) continue;
+                    const transform = `translate(${line.x}, ${line.y}) rotate(${line.angle})`;
+                    const escapedText = line.text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                    svgContent += `    <text x="0" y="0" font-family="${customFontName}" font-size="${fontSize}" fill="${rgb}" text-anchor="middle" dominant-baseline="middle" transform="${transform}">${escapedText}</text>\n`;
+                }
+            }
+            
+            for (const line of geometricLines) {
+                const x1 = line.x - line.length / 2;
+                const y1 = line.y;
+                const x2 = line.x + line.length / 2;
+                const y2 = line.y;
+                const transform = `translate(${line.x}, ${line.y}) rotate(${line.angle})`;
+                svgContent += `    <line x1="${-line.length/2}" y1="0" x2="${line.length/2}" y2="0" stroke="${rgb}" stroke-width="${line.thickness}" transform="${transform}"/>\n`;
+            }
+            
+            svgContent += `</svg>`;
+            
+            const blob = new Blob([svgContent], { type: 'image/svg+xml' });
+            const link = document.createElement('a');
+            link.download = 'featured-image.svg';
+            link.href = URL.createObjectURL(blob);
+            link.click();
+        });
+
+        const loadDesignZone = document.getElementById('loadDesignZone');
+
+        loadDesignZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            loadDesignZone.classList.add('dragover');
+        });
+
+        loadDesignZone.addEventListener('dragleave', () => {
+            loadDesignZone.classList.remove('dragover');
+        });
+
+        loadDesignZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            loadDesignZone.classList.remove('dragover');
+            const file = e.dataTransfer.files[0];
+            if (file && file.name.endsWith('.json')) {
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    try {
+                        const design = JSON.parse(event.target.result);
+                        if (!design.width || !design.height) {
+                            throw new Error('Invalid design file');
+                        }
+                        document.getElementById('imgWidth').value = design.width;
+                        document.getElementById('imgHeight').value = design.height;
+                        document.getElementById('fontSize').value = design.fontSize || 48;
+                        if (design.fontFamily) {
+                            document.getElementById('fontFamily').value = design.fontFamily;
+                            customFontName = design.fontFamily;
+                        }
+                        bgColors.color1 = design.bgColor || { r: 255, g: 255, b: 255 };
+                        textColor = design.textColor || { r: 0, g: 0, b: 0 };
+                        lines.length = 0;
+                        if (design.lines) {
+                            design.lines.forEach(line => {
+                                lines.push(line);
+                            });
+                        }
+                        geometricLines.length = 0;
+                        if (design.geometricLines) {
+                            design.geometricLines.forEach(line => {
+                                geometricLines.push(line);
+                            });
+                        }
+                        customFontName = design.fontName || 'monospace';
+                        if (design.fontName && design.fontName !== 'monospace') {
+                            alert('Please drop the font file again to restore the custom font');
+                        }
+                        createLineControls();
+                        createGeometricLineControls();
+                        document.getElementById('bgColor1R').value = bgColors.color1.r;
+                        document.getElementById('bgColor1G').value = bgColors.color1.g;
+                        document.getElementById('bgColor1B').value = bgColors.color1.b;
+                        document.getElementById('bgColor1RVal').textContent = bgColors.color1.r;
+                        document.getElementById('bgColor1GVal').textContent = bgColors.color1.g;
+                        document.getElementById('bgColor1BVal').textContent = bgColors.color1.b;
+                        document.getElementById('textColorR').value = textColor.r;
+                        document.getElementById('textColorG').value = textColor.g;
+                        document.getElementById('textColorB').value = textColor.b;
+                        document.getElementById('textColorRVal').textContent = textColor.r;
+                        document.getElementById('textColorGVal').textContent = textColor.g;
+                        document.getElementById('textColorBVal').textContent = textColor.b;
+                        document.getElementById('fontName').textContent = design.fontName === 'monospace' ? 'monospace' : design.fontName;
+                        updateColorSwatches();
+                        render();
+                    } catch (err) {
+                        console.error(err);
+                        alert('Invalid design file: ' + err.message);
+                    }
+                };
+                reader.readAsText(file);
+            } else {
+                handleFontDrop(file);
+            }
+        });
+
+        let draggingLine = null;
+        let draggingGeometricLine = null;
+        let dragOffsetX = 0;
+        let dragOffsetY = 0;
+        let activeKey = null;
+        let lastMouseX = 0;
+        let lastMouseY = 0;
+        const keyIndicator = document.getElementById('keyIndicator');
+
+        function getCanvasCoords(e) {
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            return {
+                x: (e.clientX - rect.left) * scaleX,
+                y: (e.clientY - rect.top) * scaleY
+            };
+        }
+
+        function findGeometricLineAtPoint(x, y) {
+            const hitRadius = 10;
+            for (let i = geometricLines.length - 1; i >= 0; i--) {
+                const line = geometricLines[i];
+                const rad = line.angle * Math.PI / 180;
+                const dx = x - line.x;
+                const dy = y - line.y;
+                const rotX = dx * Math.cos(-rad) - dy * Math.sin(-rad);
+                const rotY = dx * Math.sin(-rad) + dy * Math.cos(-rad);
+                if (Math.abs(rotY) < hitRadius && Math.abs(rotX) <= line.length / 2) {
+                    return i;
+                }
+            }
+            return null;
+        }
+
+        document.addEventListener('keydown', (e) => {
+            if (['x', 'y', 'r', 's', 'l', 't'].includes(e.key.toLowerCase())) {
+                activeKey = e.key.toLowerCase();
+                keyIndicator.textContent = activeKey.toUpperCase();
+                keyIndicator.classList.add('active');
+            }
+        });
+
+        document.addEventListener('keyup', (e) => {
+            const key = e.key.toLowerCase();
+            if (['x', 'y', 'r', 's', 'l', 't'].includes(key)) {
+                activeKey = null;
+                keyIndicator.classList.remove('active');
+            }
+        });
+
+        function findLineAtPoint(x, y) {
+            const fontSize = parseInt(document.getElementById('fontSize').value);
+            for (let i = lines.length - 1; i >= 0; i--) {
+                if (!lines[i].text) continue;
+                const box = getTextBoundingBox(lines[i].text, fontSize, lines[i].angle);
+                const lx = lines[i].x - box.width / 2;
+                const ly = lines[i].y - box.height / 2;
+                if (x >= lx && x <= lx + box.width && y >= ly && y <= ly + box.height) {
+                    return i;
+                }
+            }
+            return null;
+        }
+
+        canvas.addEventListener('mousedown', (e) => {
+            const coords = getCanvasCoords(e);
+            const lineIndex = findLineAtPoint(coords.x, coords.y);
+            const geoLineIndex = findGeometricLineAtPoint(coords.x, coords.y);
+            if (geoLineIndex !== null) {
+                draggingGeometricLine = geoLineIndex;
+                dragOffsetX = coords.x - geometricLines[geoLineIndex].x;
+                dragOffsetY = coords.y - geometricLines[geoLineIndex].y;
+                lastMouseX = coords.x;
+                lastMouseY = coords.y;
+                canvas.style.cursor = 'grabbing';
+            } else if (lineIndex !== null) {
+                draggingLine = lineIndex;
+                dragOffsetX = coords.x - lines[lineIndex].x;
+                dragOffsetY = coords.y - lines[lineIndex].y;
+                lastMouseX = coords.x;
+                lastMouseY = coords.y;
+                canvas.style.cursor = 'grabbing';
+            }
+        });
+
+        canvas.addEventListener('mousemove', (e) => {
+            if (draggingGeometricLine !== null) {
+                const coords = getCanvasCoords(e);
+                const width = parseInt(document.getElementById('imgWidth').value);
+                const height = parseInt(document.getElementById('imgHeight').value);
+                
+                const deltaX = coords.x - lastMouseX;
+                const deltaY = coords.y - lastMouseY;
+                lastMouseX = coords.x;
+                lastMouseY = coords.y;
+
+                if (activeKey === 'r') {
+                    const rotationSpeed = 0.5;
+                    geometricLines[draggingGeometricLine].angle += deltaX * rotationSpeed;
+                    if (geometricLines[draggingGeometricLine].angle > 180) geometricLines[draggingGeometricLine].angle -= 360;
+                    if (geometricLines[draggingGeometricLine].angle < -180) geometricLines[draggingGeometricLine].angle += 360;
+                    document.querySelector(`.geo-line-angle[data-index="${draggingGeometricLine}"]`).value = Math.round(geometricLines[draggingGeometricLine].angle);
+                } else if (activeKey === 'l') {
+                    const lengthSpeed = 0.5;
+                    geometricLines[draggingGeometricLine].length = Math.max(10, geometricLines[draggingGeometricLine].length + deltaX * lengthSpeed);
+                    document.querySelector(`.geo-line-length[data-index="${draggingGeometricLine}"]`).value = Math.round(geometricLines[draggingGeometricLine].length);
+                } else if (activeKey === 't') {
+                    const thicknessSpeed = 0.5;
+                    geometricLines[draggingGeometricLine].thickness = Math.max(1, geometricLines[draggingGeometricLine].thickness + deltaX * thicknessSpeed);
+                    document.querySelector(`.geo-line-thickness[data-index="${draggingGeometricLine}"]`).value = Math.round(geometricLines[draggingGeometricLine].thickness);
+                } else {
+                    let newX = coords.x - dragOffsetX;
+                    let newY = coords.y - dragOffsetY;
+                    
+                    const padding = 20;
+                    newX = Math.max(padding, Math.min(width - padding, newX));
+                    newY = Math.max(padding, Math.min(height - padding, newY));
+                    
+                    if (activeKey === 'x') {
+                        newY = geometricLines[draggingGeometricLine].y;
+                    } else if (activeKey === 'y') {
+                        newX = geometricLines[draggingGeometricLine].x;
+                    }
+                    
+                    geometricLines[draggingGeometricLine].x = Math.round(newX);
+                    geometricLines[draggingGeometricLine].y = Math.round(newY);
+                    
+                    document.querySelector(`.geo-line-x[data-index="${draggingGeometricLine}"]`).value = geometricLines[draggingGeometricLine].x;
+                    document.querySelector(`.geo-line-y[data-index="${draggingGeometricLine}"]`).value = geometricLines[draggingGeometricLine].y;
+                }
+                
+                render();
+            } else if (draggingLine !== null) {
+                const coords = getCanvasCoords(e);
+                const width = parseInt(document.getElementById('imgWidth').value);
+                const height = parseInt(document.getElementById('imgHeight').value);
+                let fontSize = parseInt(document.getElementById('fontSize').value);
+                
+                const deltaX = coords.x - lastMouseX;
+                const deltaY = coords.y - lastMouseY;
+                lastMouseX = coords.x;
+                lastMouseY = coords.y;
+
+                if (activeKey === 'r') {
+                    const rotationSpeed = 0.5;
+                    lines[draggingLine].angle += deltaX * rotationSpeed;
+                    if (lines[draggingLine].angle > 180) lines[draggingLine].angle -= 360;
+                    if (lines[draggingLine].angle < -180) lines[draggingLine].angle += 360;
+                    document.querySelector(`.line-angle[data-index="${draggingLine}"]`).value = Math.round(lines[draggingLine].angle);
+                } else if (activeKey === 's') {
+                    fontSize = Math.max(8, Math.min(200, fontSize + deltaY));
+                    document.getElementById('fontSize').value = fontSize;
+                } else {
+                    let newX = coords.x - dragOffsetX;
+                    let newY = coords.y - dragOffsetY;
+                    
+                    const padding = fontSize / 2;
+                    newX = Math.max(padding, Math.min(width - padding, newX));
+                    newY = Math.max(padding, Math.min(height - padding, newY));
+                    
+                    if (activeKey === 'x') {
+                        newY = lines[draggingLine].y;
+                    } else if (activeKey === 'y') {
+                        newX = lines[draggingLine].x;
+                    }
+                    
+                    lines[draggingLine].x = Math.round(newX);
+                    lines[draggingLine].y = Math.round(newY);
+                    
+                    document.querySelector(`.line-x[data-index="${draggingLine}"]`).value = lines[draggingLine].x;
+                    document.querySelector(`.line-y[data-index="${draggingLine}"]`).value = lines[draggingLine].y;
+                }
+                
+                render();
+            } else {
+                const coords = getCanvasCoords(e);
+                const lineIndex = findLineAtPoint(coords.x, coords.y);
+                const geoLineIndex = findGeometricLineAtPoint(coords.x, coords.y);
+                canvas.style.cursor = (lineIndex !== null || geoLineIndex !== null) ? 'grab' : 'move';
+            }
+        });
+
+        canvas.addEventListener('mouseup', () => {
+            if (draggingLine !== null || draggingGeometricLine !== null) {
+                draggingLine = null;
+                draggingGeometricLine = null;
+                canvas.style.cursor = 'move';
+            }
+        });
+
+        canvas.addEventListener('mouseleave', () => {
+            if (draggingLine !== null || draggingGeometricLine !== null) {
+                draggingLine = null;
+                draggingGeometricLine = null;
+                canvas.style.cursor = 'move';
+            }
+        });
+
+        const fontDropZone = document.getElementById('fontDropZone');
+        const fontNameDisplay = document.getElementById('fontName');
+
+        function handleFontDrop(file) {
+            const fontExtensions = ['.ttf', '.otf', '.woff', '.woff2'];
+            const ext = file.name.toLowerCase().slice(file.name.lastIndexOf('.'));
+            if (!fontExtensions.includes(ext)) {
+                alert('Please drop a font file (.ttf, .otf, .woff, .woff2)');
+                return;
+            }
+            
+            file.arrayBuffer().then(arrayBuffer => {
+                const fontFace = new FontFace('CustomFont', arrayBuffer);
+                fontFace.load().then(() => {
+                    document.fonts.add(fontFace);
+                    customFontName = 'CustomFont';
+                    customFontData = arrayBuffer;
+                    fontNameDisplay.textContent = file.name;
+                    document.getElementById('fontFamily').value = 'monospace';
+                    document.getElementById('vectorizeText').disabled = false;
+                    document.getElementById('vectorizeTooltip').textContent = 'Convert text to vector paths';
+                    render();
+                }).catch(err => {
+                    console.error('Failed to load font:', err);
+                    alert('Failed to load font file');
+                });
+            });
+        }
+
+        fontDropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            fontDropZone.classList.add('dragover');
+        });
+
+        fontDropZone.addEventListener('dragleave', () => {
+            fontDropZone.classList.remove('dragover');
+        });
+
+        fontDropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            fontDropZone.classList.remove('dragover');
+            const file = e.dataTransfer.files[0];
+            if (file) handleFontDrop(file);
+        });
+
+        document.addEventListener('dragover', (e) => {
+            e.preventDefault();
+        });
+
+        document.addEventListener('drop', (e) => {
+            e.preventDefault();
+            const file = e.dataTransfer.files[0];
+            if (!file) return;
+            if (file.name.endsWith('.json')) {
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    try {
+                        const design = JSON.parse(event.target.result);
+                        if (!design.width || !design.height) {
+                            throw new Error('Invalid design file');
+                        }
+                        document.getElementById('imgWidth').value = design.width;
+                        document.getElementById('imgHeight').value = design.height;
+                        document.getElementById('fontSize').value = design.fontSize || 48;
+                        if (design.fontFamily) {
+                            document.getElementById('fontFamily').value = design.fontFamily;
+                            customFontName = design.fontFamily;
+                        }
+                        bgColors.color1 = design.bgColor || { r: 255, g: 255, b: 255 };
+                        textColor = design.textColor || { r: 0, g: 0, b: 0 };
+                        lines.length = 0;
+                        if (design.lines) {
+                            design.lines.forEach(line => {
+                                lines.push(line);
+                            });
+                        }
+                        geometricLines.length = 0;
+                        if (design.geometricLines) {
+                            design.geometricLines.forEach(line => {
+                                geometricLines.push(line);
+                            });
+                        }
+                        customFontName = design.fontName || 'monospace';
+                        if (design.fontName && design.fontName !== 'monospace') {
+                            alert('Please drop the font file again to restore the custom font');
+                        }
+                        createLineControls();
+                        createGeometricLineControls();
+                        document.getElementById('bgColor1R').value = bgColors.color1.r;
+                        document.getElementById('bgColor1G').value = bgColors.color1.g;
+                        document.getElementById('bgColor1B').value = bgColors.color1.b;
+                        document.getElementById('bgColor1RVal').textContent = bgColors.color1.r;
+                        document.getElementById('bgColor1GVal').textContent = bgColors.color1.g;
+                        document.getElementById('bgColor1BVal').textContent = bgColors.color1.b;
+                        document.getElementById('textColorR').value = textColor.r;
+                        document.getElementById('textColorG').value = textColor.g;
+                        document.getElementById('textColorB').value = textColor.b;
+                        document.getElementById('textColorRVal').textContent = textColor.r;
+                        document.getElementById('textColorGVal').textContent = textColor.g;
+                        document.getElementById('textColorBVal').textContent = textColor.b;
+                        document.getElementById('fontName').textContent = design.fontName === 'monospace' ? 'monospace' : design.fontName;
+                        updateColorSwatches();
+                        render();
+                    } catch (err) {
+                        console.error(err);
+                        alert('Invalid design file: ' + err.message);
+                    }
+                };
+                reader.readAsText(file);
+            } else {
+                handleFontDrop(file);
+            }
+        });
+
+        document.getElementById('addLineBtn').addEventListener('click', () => {
+            const width = parseInt(document.getElementById('imgWidth').value);
+            const height = parseInt(document.getElementById('imgHeight').value);
+            const padding = 50;
+            lines.push({
+                text: '',
+                x: padding + Math.random() * (width - 2 * padding),
+                y: padding + Math.random() * (height - 2 * padding),
+                angle: Math.round(Math.random() * 360 - 180)
+            });
+            createLineControls();
+            render();
+        });
+
+        document.getElementById('addGeometricLineBtn').addEventListener('click', () => {
+            const width = parseInt(document.getElementById('imgWidth').value);
+            const height = parseInt(document.getElementById('imgHeight').value);
+            const padding = 20;
+            geometricLines.push({
+                x: padding + Math.random() * (width - 2 * padding),
+                y: padding + Math.random() * (height - 2 * padding),
+                angle: Math.round(Math.random() * 360 - 180),
+                length: 100,
+                thickness: 2
+            });
+            createGeometricLineControls();
+            render();
+        });
+
+        document.getElementById('textFoldIcon').addEventListener('click', () => {
+            const foldable = document.getElementById('textFoldable');
+            const icon = document.getElementById('textFoldIcon');
+            foldable.classList.toggle('collapsed');
+            icon.textContent = foldable.classList.contains('collapsed') ? '+' : '−';
+        });
+
+        document.getElementById('linesFoldIcon').addEventListener('click', () => {
+            const foldable = document.getElementById('linesFoldable');
+            const icon = document.getElementById('linesFoldIcon');
+            foldable.classList.toggle('collapsed');
+            icon.textContent = foldable.classList.contains('collapsed') ? '+' : '−';
+        });
+
+        document.getElementById('helpFoldIcon').addEventListener('click', () => {
+            const foldable = document.getElementById('helpFoldable');
+            const icon = document.getElementById('helpFoldIcon');
+            foldable.classList.toggle('collapsed');
+            icon.textContent = foldable.classList.contains('collapsed') ? '+' : '−';
+        });
+
+        createLineControls();
+        createGeometricLineControls();
+        updateColorSwatches();
+        document.getElementById('vectorizeText').disabled = true;
+        render();
+    </script>
+</body>
+</html>
