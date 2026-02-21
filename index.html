@@ -231,6 +231,12 @@
             text-align: right;
         }
 
+        .hex-row input[type="text"] {
+            width: 70px;
+            font-family: monospace;
+            font-size: 10px;
+        }
+
         .random-btn {
             background: #fff;
             border: 1px solid #000;
@@ -495,9 +501,10 @@
                     <div class="color-wrapper">
                         <div class="color-swatch" id="bgColor1Swatch"></div>
                         <div class="hsl-editor" id="bgColor1Editor">
-                            <div class="hsl-row"><label>R</label><input type="range" id="bgColor1R" min="0" max="255"><span id="bgColor1RVal">255</span></div>
-                            <div class="hsl-row"><label>G</label><input type="range" id="bgColor1G" min="0" max="255"><span id="bgColor1GVal">255</span></div>
-                            <div class="hsl-row"><label>B</label><input type="range" id="bgColor1B" min="0" max="255"><span id="bgColor1BVal">255</span></div>
+                            <div class="hsl-row"><label>R</label><input type="range" id="bgColor1R" min="0" max="255" value="255"><span id="bgColor1RVal">255</span></div>
+                            <div class="hsl-row"><label>G</label><input type="range" id="bgColor1G" min="0" max="255" value="255"><span id="bgColor1GVal">255</span></div>
+                            <div class="hsl-row"><label>B</label><input type="range" id="bgColor1B" min="0" max="255" value="255"><span id="bgColor1BVal">255</span></div>
+                            <div class="hsl-row hex-row"><label>HEX</label><input type="text" id="bgColorHex" value="#ffffff" maxlength="7"></div>
                         </div>
                     </div>
                 </div>
@@ -506,9 +513,10 @@
                     <div class="color-wrapper">
                         <div class="color-swatch" id="textColorSwatch"></div>
                         <div class="hsl-editor" id="textColorEditor">
-                            <div class="hsl-row"><label>R</label><input type="range" id="textColorR" min="0" max="255"><span id="textColorRVal">0</span></div>
-                            <div class="hsl-row"><label>G</label><input type="range" id="textColorG" min="0" max="255"><span id="textColorGVal">0</span></div>
-                            <div class="hsl-row"><label>B</label><input type="range" id="textColorB" min="0" max="255"><span id="textColorBVal">0</span></div>
+                            <div class="hsl-row"><label>R</label><input type="range" id="textColorR" min="0" max="255" value="0"><span id="textColorRVal">0</span></div>
+                            <div class="hsl-row"><label>G</label><input type="range" id="textColorG" min="0" max="255" value="0"><span id="textColorGVal">0</span></div>
+                            <div class="hsl-row"><label>B</label><input type="range" id="textColorB" min="0" max="255" value="0"><span id="textColorBVal">0</span></div>
+                            <div class="hsl-row hex-row"><label>HEX</label><input type="text" id="textColorHex" value="#000000" maxlength="7"></div>
                         </div>
                     </div>
                 </div>
@@ -854,6 +862,8 @@
         function updateColorSwatches() {
             document.getElementById('bgColor1Swatch').style.backgroundColor = rgbToCss(bgColors.color1.r, bgColors.color1.g, bgColors.color1.b);
             document.getElementById('textColorSwatch').style.backgroundColor = rgbToCss(textColor.r, textColor.g, textColor.b);
+            updateHexFromRgb('bg', bgColors.color1);
+            updateHexFromRgb('text', textColor);
         }
 
         function randomizeField(index, field) {
@@ -979,19 +989,60 @@
             activeEditor = editor.classList.contains('active') ? editor : null;
         });
 
+        function updateHexFromRgb(prefix, color) {
+            const hex = '#' + 
+                color.r.toString(16).padStart(2, '0') + 
+                color.g.toString(16).padStart(2, '0') + 
+                color.b.toString(16).padStart(2, '0');
+            document.getElementById(prefix + 'ColorHex').value = hex;
+        }
+
+        function updateRgbFromHex(prefix, color) {
+            const hexInput = document.getElementById(prefix + 'ColorHex');
+            let hex = hexInput.value.replace('#', '');
+            if (hex.length === 3) {
+                hex = hex[0]+hex[0] + hex[1]+hex[1] + hex[2]+hex[2];
+            }
+            if (hex.length === 6) {
+                color.r = parseInt(hex.substr(0, 2), 16);
+                color.g = parseInt(hex.substr(2, 2), 16);
+                color.b = parseInt(hex.substr(4, 2), 16);
+                document.getElementById(prefix + 'ColorR').value = color.r;
+                document.getElementById(prefix + 'ColorG').value = color.g;
+                document.getElementById(prefix + 'ColorB').value = color.b;
+                document.getElementById(prefix + 'ColorRVal').textContent = color.r;
+                document.getElementById(prefix + 'ColorGVal').textContent = color.g;
+                document.getElementById(prefix + 'ColorBVal').textContent = color.b;
+            }
+        }
+
         ['R', 'G', 'B'].forEach(prop => {
             document.getElementById(`bgColor1${prop}`).addEventListener('input', (e) => {
                 bgColors.color1[prop.toLowerCase()] = parseInt(e.target.value);
                 document.getElementById(`bgColor1${prop}Val`).textContent = e.target.value;
+                updateHexFromRgb('bg', bgColors.color1);
                 updateColorSwatches();
                 render();
             });
             document.getElementById(`textColor${prop}`).addEventListener('input', (e) => {
                 textColor[prop.toLowerCase()] = parseInt(e.target.value);
                 document.getElementById(`textColor${prop}Val`).textContent = e.target.value;
+                updateHexFromRgb('text', textColor);
                 updateColorSwatches();
                 render();
             });
+        });
+
+        document.getElementById('bgColorHex').addEventListener('input', (e) => {
+            updateRgbFromHex('bg', bgColors.color1);
+            updateColorSwatches();
+            render();
+        });
+
+        document.getElementById('textColorHex').addEventListener('input', (e) => {
+            updateRgbFromHex('text', textColor);
+            updateColorSwatches();
+            render();
         });
 
         document.addEventListener('click', (e) => {
