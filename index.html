@@ -409,12 +409,38 @@
             display: block;
         }
 
-        .bg-image-input {
-            display: none;
+        .bg-image-drop-zone {
+            border: 1px dashed #000;
+            padding: 3px 8px;
+            text-align: center;
+            cursor: pointer;
+            font-size: 9px;
+            margin-left: 5px;
         }
 
-        .bg-image-input.active {
-            display: block;
+        .bg-image-drop-zone.dragover {
+            background: #000;
+            color: #fff;
+        }
+
+        .bg-image-drop-zone.has-image {
+            background: #000;
+            color: #fff;
+        }
+
+        .bg-image-preview {
+            width: 20px;
+            height: 20px;
+            border: 1px solid #000;
+            object-fit: cover;
+            vertical-align: middle;
+            margin-left: 3px;
+        }
+
+        .bg-image-row {
+            display: flex;
+            align-items: center;
+            gap: 5px;
         }
 
         .gradient-preview {
@@ -496,7 +522,7 @@
 
             <div class="control-group">
                 <h3>COLORS</h3>
-                <div class="control-row">
+                <div class="control-row bg-image-row">
                     <label>BG</label>
                     <div class="color-wrapper">
                         <div class="color-swatch" id="bgColor1Swatch"></div>
@@ -507,6 +533,8 @@
                             <div class="hsl-row hex-row"><label>HEX</label><input type="text" id="bgColorHex" value="#ffffff" maxlength="7"></div>
                         </div>
                     </div>
+                    <div class="bg-image-drop-zone" id="bgImageDropZone">IMG</div>
+                    <img class="bg-image-preview" id="bgImagePreview" style="display: none;">
                 </div>
                 <div class="control-row">
                     <label>TEXT</label>
@@ -535,6 +563,14 @@
                 <div class="foldable" id="linesFoldable">
                     <div class="line-controls" id="linesControls"></div>
                     <button class="add-line-btn" id="addGeometricLineBtn">+ ADD LINE</button>
+                </div>
+            </div>
+
+            <div class="control-group">
+                <h3><span class="fold-icon" id="imagesFoldIcon">−</span> IMAGES</h3>
+                <div class="foldable" id="imagesFoldable">
+                    <div class="drop-zone" id="imageDropZone">DROP IMAGE HERE</div>
+                    <div class="image-controls" id="imageControls"></div>
                 </div>
             </div>
 
@@ -597,9 +633,36 @@
 
         const geometricLines = [];
 
+        const imageLayers = [];
+
         const bgColors = {
             color1: { r: 255, g: 255, b: 255 }
         };
+
+        let bgImage = null;
+
+        function drawBackgroundImage(ctx, width, height) {
+            if (!bgImage) return;
+            
+            const imgRatio = bgImage.width / bgImage.height;
+            const canvasRatio = width / height;
+            
+            let drawWidth, drawHeight, offsetX, offsetY;
+            
+            if (imgRatio > canvasRatio) {
+                drawHeight = height;
+                drawWidth = height * imgRatio;
+                offsetX = (width - drawWidth) / 2;
+                offsetY = 0;
+            } else {
+                drawWidth = width;
+                drawHeight = width / imgRatio;
+                offsetX = 0;
+                offsetY = (height - drawHeight) / 2;
+            }
+            
+            ctx.drawImage(bgImage, offsetX, offsetY, drawWidth, drawHeight);
+        }
 
         let textColor = { r: 0, g: 0, b: 0 };
 
@@ -859,6 +922,130 @@
             });
         }
 
+        function createImageControls() {
+            const container = document.getElementById('imageControls');
+            container.innerHTML = '';
+
+            imageLayers.forEach((imgLayer, i) => {
+                const group = document.createElement('div');
+                group.className = 'control-group';
+                group.innerHTML = `
+                    <h3><span class="fold-item-icon" data-type="image" data-index="${i}">−</span> IMG ${i + 1} <button class="copy-btn img-copy" data-index="${i}">⧉</button><button class="remove-btn img-remove" data-index="${i}">✕</button></h3>
+                    <div class="item-content" data-type="image" data-index="${i}">
+                        <div class="line-row">
+                            <label>X</label>
+                            <input type="number" class="img-x" data-index="${i}" value="${imgLayer.x}">
+                            <button class="random-btn img-random" data-field="x" data-index="${i}">♻</button>
+                        </div>
+                        <div class="line-row">
+                            <label>Y</label>
+                            <input type="number" class="img-y" data-index="${i}" value="${imgLayer.y}">
+                            <button class="random-btn img-random" data-field="y" data-index="${i}">♻</button>
+                        </div>
+                        <div class="line-row">
+                            <label>ANG</label>
+                            <input type="number" class="img-angle" data-index="${i}" value="${imgLayer.angle}" min="-180" max="180">
+                            <button class="random-btn img-random" data-field="angle" data-index="${i}">♻</button>
+                        </div>
+                        <div class="line-row">
+                            <label>SCALE</label>
+                            <input type="number" class="img-scale" data-index="${i}" value="${imgLayer.scale}" step="0.1" min="0.1" max="5">
+                        </div>
+                    </div>
+                `;
+                container.appendChild(group);
+            });
+
+            container.querySelectorAll('.fold-item-icon').forEach(icon => {
+                icon.addEventListener('click', function() {
+                    const type = this.dataset.type;
+                    const index = this.dataset.index;
+                    const content = container.querySelector(`.item-content[data-type="${type}"][data-index="${index}"]`);
+                    if (content) {
+                        content.classList.toggle('collapsed');
+                        this.textContent = content.classList.contains('collapsed') ? '+' : '−';
+                    }
+                });
+            });
+
+            document.querySelectorAll('.img-x').forEach(input => {
+                input.addEventListener('input', (e) => {
+                    imageLayers[e.target.dataset.index].x = parseInt(e.target.value) || 0;
+                    render();
+                });
+            });
+
+            document.querySelectorAll('.img-y').forEach(input => {
+                input.addEventListener('input', (e) => {
+                    imageLayers[e.target.dataset.index].y = parseInt(e.target.value) || 0;
+                    render();
+                });
+            });
+
+            document.querySelectorAll('.img-angle').forEach(input => {
+                input.addEventListener('input', (e) => {
+                    imageLayers[e.target.dataset.index].angle = parseInt(e.target.value) || 0;
+                    render();
+                });
+            });
+
+            document.querySelectorAll('.img-scale').forEach(input => {
+                input.addEventListener('input', (e) => {
+                    imageLayers[e.target.dataset.index].scale = parseFloat(e.target.value) || 1;
+                    render();
+                });
+            });
+
+            document.querySelectorAll('.img-random').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const index = parseInt(e.target.dataset.index);
+                    const field = e.target.dataset.field;
+                    const width = parseInt(document.getElementById('imgWidth').value);
+                    const height = parseInt(document.getElementById('imgHeight').value);
+                    const padding = 20;
+
+                    if (field === 'x') {
+                        imageLayers[index].x = padding + Math.random() * (width - 2 * padding);
+                        document.querySelector(`.img-x[data-index="${index}"]`).value = Math.round(imageLayers[index].x);
+                    } else if (field === 'y') {
+                        imageLayers[index].y = padding + Math.random() * (height - 2 * padding);
+                        document.querySelector(`.img-y[data-index="${index}"]`).value = Math.round(imageLayers[index].y);
+                    } else if (field === 'angle') {
+                        imageLayers[index].angle = Math.round(Math.random() * 360 - 180);
+                        document.querySelector(`.img-angle[data-index="${index}"]`).value = imageLayers[index].angle;
+                    }
+                    render();
+                });
+            });
+
+            document.querySelectorAll('.img-remove').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const index = parseInt(e.target.dataset.index);
+                    imageLayers.splice(index, 1);
+                    createImageControls();
+                    render();
+                });
+            });
+
+            document.querySelectorAll('.img-copy').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const index = parseInt(e.target.dataset.index);
+                    const original = imageLayers[index];
+                    imageLayers.push({
+                        image: original.image,
+                        x: original.x + 20,
+                        y: original.y + 20,
+                        angle: original.angle,
+                        scale: original.scale,
+                        width: original.width,
+                        height: original.height
+                    });
+                    createImageControls();
+                    render();
+                });
+            });
+        }
+
         function updateColorSwatches() {
             document.getElementById('bgColor1Swatch').style.backgroundColor = rgbToCss(bgColors.color1.r, bgColors.color1.g, bgColors.color1.b);
             document.getElementById('textColorSwatch').style.backgroundColor = rgbToCss(textColor.r, textColor.g, textColor.b);
@@ -931,6 +1118,10 @@
             ctx.fillStyle = rgbToCss(bgColors.color1.r, bgColors.color1.g, bgColors.color1.b);
             ctx.fillRect(0, 0, width, height);
 
+            if (bgImage) {
+                drawBackgroundImage(ctx, width, height);
+            }
+
             ctx.font = `${fontSize}px ${customFontName}`;
             ctx.textBaseline = 'middle';
             ctx.textAlign = 'center';
@@ -955,6 +1146,17 @@
                 ctx.moveTo(-line.length / 2, 0);
                 ctx.lineTo(line.length / 2, 0);
                 ctx.stroke();
+                ctx.restore();
+            });
+
+            imageLayers.forEach(imgLayer => {
+                if (!imgLayer.image) return;
+                ctx.save();
+                ctx.translate(imgLayer.x, imgLayer.y);
+                ctx.rotate(imgLayer.angle * Math.PI / 180);
+                const scaledWidth = imgLayer.width * imgLayer.scale;
+                const scaledHeight = imgLayer.height * imgLayer.scale;
+                ctx.drawImage(imgLayer.image, -scaledWidth / 2, -scaledHeight / 2, scaledWidth, scaledHeight);
                 ctx.restore();
             });
         }
@@ -1060,6 +1262,7 @@
         });
 
         document.getElementById('saveDesignBtn').addEventListener('click', () => {
+            const bgImageData = bgImage ? bgImagePreview.src : null;
             const design = {
                 width: parseInt(document.getElementById('imgWidth').value),
                 height: parseInt(document.getElementById('imgHeight').value),
@@ -1067,6 +1270,7 @@
                 fontFamily: document.getElementById('fontFamily').value,
                 fontName: customFontName,
                 bgColor: bgColors.color1,
+                bgImage: bgImageData,
                 textColor: textColor,
                 lines: lines.map(line => ({
                     text: line.text,
@@ -1080,6 +1284,15 @@
                     angle: line.angle,
                     length: line.length,
                     thickness: line.thickness
+                })),
+                imageLayers: imageLayers.map(imgLayer => ({
+                    x: imgLayer.x,
+                    y: imgLayer.y,
+                    angle: imgLayer.angle,
+                    scale: imgLayer.scale,
+                    width: imgLayer.width,
+                    height: imgLayer.height,
+                    imageData: imgLayer.image ? imgLayer.image.src : null
                 }))
             };
             const blob = new Blob([JSON.stringify(design, null, 2)], { type: 'application/json' });
@@ -1203,6 +1416,22 @@
                             customFontName = design.fontFamily;
                         }
                         bgColors.color1 = design.bgColor || { r: 255, g: 255, b: 255 };
+                        if (design.bgImage) {
+                            const img = new Image();
+                            img.onload = () => {
+                                bgImage = img;
+                                bgImagePreview.src = design.bgImage;
+                                bgImagePreview.style.display = 'inline-block';
+                                bgImageDropZone.classList.add('has-image');
+                                render();
+                            };
+                            img.src = design.bgImage;
+                        } else {
+                            bgImage = null;
+                            bgImagePreview.src = '';
+                            bgImagePreview.style.display = 'none';
+                            bgImageDropZone.classList.remove('has-image');
+                        }
                         textColor = design.textColor || { r: 0, g: 0, b: 0 };
                         lines.length = 0;
                         if (design.lines) {
@@ -1214,6 +1443,28 @@
                         if (design.geometricLines) {
                             design.geometricLines.forEach(line => {
                                 geometricLines.push(line);
+                            });
+                        }
+                        imageLayers.length = 0;
+                        if (design.imageLayers) {
+                            design.imageLayers.forEach(imgLayer => {
+                                if (imgLayer.imageData) {
+                                    const img = new Image();
+                                    img.onload = () => {
+                                        imageLayers.push({
+                                            image: img,
+                                            x: imgLayer.x,
+                                            y: imgLayer.y,
+                                            angle: imgLayer.angle,
+                                            scale: imgLayer.scale,
+                                            width: imgLayer.width,
+                                            height: imgLayer.height
+                                        });
+                                        createImageControls();
+                                        render();
+                                    };
+                                    img.src = imgLayer.imageData;
+                                }
                             });
                         }
                         customFontName = design.fontName || 'monospace';
@@ -1250,6 +1501,7 @@
 
         let draggingLine = null;
         let draggingGeometricLine = null;
+        let draggingImageLayer = null;
         let dragOffsetX = 0;
         let dragOffsetY = 0;
         let activeKey = null;
@@ -1313,14 +1565,44 @@
             return null;
         }
 
+        function findImageLayerAtPoint(x, y) {
+            for (let i = imageLayers.length - 1; i >= 0; i--) {
+                const imgLayer = imageLayers[i];
+                if (!imgLayer.image) continue;
+                
+                const scaledWidth = imgLayer.width * imgLayer.scale;
+                const scaledHeight = imgLayer.height * imgLayer.scale;
+                
+                const rad = -imgLayer.angle * Math.PI / 180;
+                const dx = x - imgLayer.x;
+                const dy = y - imgLayer.y;
+                const rotX = dx * Math.cos(rad) - dy * Math.sin(rad);
+                const rotY = dx * Math.sin(rad) + dy * Math.cos(rad);
+                
+                if (rotX >= -scaledWidth / 2 && rotX <= scaledWidth / 2 &&
+                    rotY >= -scaledHeight / 2 && rotY <= scaledHeight / 2) {
+                    return i;
+                }
+            }
+            return null;
+        }
+
         canvas.addEventListener('mousedown', (e) => {
             const coords = getCanvasCoords(e);
             const lineIndex = findLineAtPoint(coords.x, coords.y);
             const geoLineIndex = findGeometricLineAtPoint(coords.x, coords.y);
+            const imgLayerIndex = findImageLayerAtPoint(coords.x, coords.y);
             if (geoLineIndex !== null) {
                 draggingGeometricLine = geoLineIndex;
                 dragOffsetX = coords.x - geometricLines[geoLineIndex].x;
                 dragOffsetY = coords.y - geometricLines[geoLineIndex].y;
+                lastMouseX = coords.x;
+                lastMouseY = coords.y;
+                canvas.style.cursor = 'grabbing';
+            } else if (imgLayerIndex !== null) {
+                draggingImageLayer = imgLayerIndex;
+                dragOffsetX = coords.x - imageLayers[imgLayerIndex].x;
+                dragOffsetY = coords.y - imageLayers[imgLayerIndex].y;
                 lastMouseX = coords.x;
                 lastMouseY = coords.y;
                 canvas.style.cursor = 'grabbing';
@@ -1381,6 +1663,48 @@
                 }
                 
                 render();
+            } else if (draggingImageLayer !== null) {
+                const coords = getCanvasCoords(e);
+                const width = parseInt(document.getElementById('imgWidth').value);
+                const height = parseInt(document.getElementById('imgHeight').value);
+                
+                const deltaX = coords.x - lastMouseX;
+                const deltaY = coords.y - lastMouseY;
+                lastMouseX = coords.x;
+                lastMouseY = coords.y;
+
+                if (activeKey === 'r') {
+                    const rotationSpeed = 0.5;
+                    imageLayers[draggingImageLayer].angle += deltaX * rotationSpeed;
+                    if (imageLayers[draggingImageLayer].angle > 180) imageLayers[draggingImageLayer].angle -= 360;
+                    if (imageLayers[draggingImageLayer].angle < -180) imageLayers[draggingImageLayer].angle += 360;
+                    document.querySelector(`.img-angle[data-index="${draggingImageLayer}"]`).value = Math.round(imageLayers[draggingImageLayer].angle);
+                } else if (activeKey === 's') {
+                    const scaleSpeed = 0.01;
+                    imageLayers[draggingImageLayer].scale = Math.max(0.1, Math.min(5, imageLayers[draggingImageLayer].scale + deltaY * scaleSpeed));
+                    document.querySelector(`.img-scale[data-index="${draggingImageLayer}"]`).value = imageLayers[draggingImageLayer].scale.toFixed(2);
+                } else {
+                    let newX = coords.x - dragOffsetX;
+                    let newY = coords.y - dragOffsetY;
+                    
+                    const padding = 20;
+                    newX = Math.max(padding, Math.min(width - padding, newX));
+                    newY = Math.max(padding, Math.min(height - padding, newY));
+                    
+                    if (activeKey === 'x') {
+                        newY = imageLayers[draggingImageLayer].y;
+                    } else if (activeKey === 'y') {
+                        newX = imageLayers[draggingImageLayer].x;
+                    }
+                    
+                    imageLayers[draggingImageLayer].x = Math.round(newX);
+                    imageLayers[draggingImageLayer].y = Math.round(newY);
+                    
+                    document.querySelector(`.img-x[data-index="${draggingImageLayer}"]`).value = imageLayers[draggingImageLayer].x;
+                    document.querySelector(`.img-y[data-index="${draggingImageLayer}"]`).value = imageLayers[draggingImageLayer].y;
+                }
+                
+                render();
             } else if (draggingLine !== null) {
                 const coords = getCanvasCoords(e);
                 const width = parseInt(document.getElementById('imgWidth').value);
@@ -1427,20 +1751,22 @@
                 const coords = getCanvasCoords(e);
                 const lineIndex = findLineAtPoint(coords.x, coords.y);
                 const geoLineIndex = findGeometricLineAtPoint(coords.x, coords.y);
-                canvas.style.cursor = (lineIndex !== null || geoLineIndex !== null) ? 'grab' : 'move';
+                const imgLayerIndex = findImageLayerAtPoint(coords.x, coords.y);
+                canvas.style.cursor = (lineIndex !== null || geoLineIndex !== null || imgLayerIndex !== null) ? 'grab' : 'move';
             }
         });
 
         canvas.addEventListener('mouseup', () => {
-            if (draggingLine !== null || draggingGeometricLine !== null) {
+            if (draggingLine !== null || draggingGeometricLine !== null || draggingImageLayer !== null) {
                 draggingLine = null;
                 draggingGeometricLine = null;
+                draggingImageLayer = null;
                 canvas.style.cursor = 'move';
             }
         });
 
         canvas.addEventListener('mouseleave', () => {
-            if (draggingLine !== null || draggingGeometricLine !== null) {
+            if (draggingLine !== null || draggingGeometricLine !== null || draggingImageLayer !== null) {
                 draggingLine = null;
                 draggingGeometricLine = null;
                 canvas.style.cursor = 'move';
@@ -1492,6 +1818,51 @@
             if (file) handleFontDrop(file);
         });
 
+        const bgImageDropZone = document.getElementById('bgImageDropZone');
+        const bgImagePreview = document.getElementById('bgImagePreview');
+
+        bgImageDropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            bgImageDropZone.classList.add('dragover');
+        });
+
+        bgImageDropZone.addEventListener('dragleave', () => {
+            bgImageDropZone.classList.remove('dragover');
+        });
+
+        bgImageDropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            bgImageDropZone.classList.remove('dragover');
+            const file = e.dataTransfer.files[0];
+            if (file) handleBgImageDrop(file);
+        });
+
+        function handleBgImageDrop(file) {
+            const validExtensions = ['.jpg', '.jpeg', '.png', '.webp', '.gif'];
+            const ext = file.name.toLowerCase().slice(file.name.lastIndexOf('.'));
+            if (!validExtensions.includes(ext)) {
+                alert('Please drop an image file (.jpg, .jpeg, .png, .webp, .gif)');
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                const img = new Image();
+                img.onload = () => {
+                    bgImage = img;
+                    bgImagePreview.src = event.target.result;
+                    bgImagePreview.style.display = 'inline-block';
+                    bgImageDropZone.classList.add('has-image');
+                    render();
+                };
+                img.onerror = () => {
+                    alert('Failed to load image');
+                };
+                img.src = event.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+
         document.addEventListener('dragover', (e) => {
             e.preventDefault();
         });
@@ -1516,6 +1887,22 @@
                             customFontName = design.fontFamily;
                         }
                         bgColors.color1 = design.bgColor || { r: 255, g: 255, b: 255 };
+                        if (design.bgImage) {
+                            const img = new Image();
+                            img.onload = () => {
+                                bgImage = img;
+                                bgImagePreview.src = design.bgImage;
+                                bgImagePreview.style.display = 'inline-block';
+                                bgImageDropZone.classList.add('has-image');
+                                render();
+                            };
+                            img.src = design.bgImage;
+                        } else {
+                            bgImage = null;
+                            bgImagePreview.src = '';
+                            bgImagePreview.style.display = 'none';
+                            bgImageDropZone.classList.remove('has-image');
+                        }
                         textColor = design.textColor || { r: 0, g: 0, b: 0 };
                         lines.length = 0;
                         if (design.lines) {
@@ -1527,6 +1914,28 @@
                         if (design.geometricLines) {
                             design.geometricLines.forEach(line => {
                                 geometricLines.push(line);
+                            });
+                        }
+                        imageLayers.length = 0;
+                        if (design.imageLayers) {
+                            design.imageLayers.forEach(imgLayer => {
+                                if (imgLayer.imageData) {
+                                    const img = new Image();
+                                    img.onload = () => {
+                                        imageLayers.push({
+                                            image: img,
+                                            x: imgLayer.x,
+                                            y: imgLayer.y,
+                                            angle: imgLayer.angle,
+                                            scale: imgLayer.scale,
+                                            width: imgLayer.width,
+                                            height: imgLayer.height
+                                        });
+                                        createImageControls();
+                                        render();
+                                    };
+                                    img.src = imgLayer.imageData;
+                                }
                             });
                         }
                         customFontName = design.fontName || 'monospace';
@@ -1590,6 +1999,63 @@
             render();
         });
 
+        const imageDropZone = document.getElementById('imageDropZone');
+
+        imageDropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            imageDropZone.classList.add('dragover');
+        });
+
+        imageDropZone.addEventListener('dragleave', () => {
+            imageDropZone.classList.remove('dragover');
+        });
+
+        imageDropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            imageDropZone.classList.remove('dragover');
+            const file = e.dataTransfer.files[0];
+            if (file) handleImageLayerDrop(file);
+        });
+
+        function handleImageLayerDrop(file) {
+            const validExtensions = ['.jpg', '.jpeg', '.png', '.webp', '.gif'];
+            const ext = file.name.toLowerCase().slice(file.name.lastIndexOf('.'));
+            if (!validExtensions.includes(ext)) {
+                alert('Please drop an image file (.jpg, .jpeg, .png, .webp, .gif)');
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                const img = new Image();
+                img.onload = () => {
+                    const width = parseInt(document.getElementById('imgWidth').value);
+                    const height = parseInt(document.getElementById('imgHeight').value);
+                    const padding = 50;
+                    
+                    const maxSize = 200;
+                    const scale = Math.min(maxSize / img.width, maxSize / img.height, 1);
+                    
+                    imageLayers.push({
+                        image: img,
+                        x: padding + Math.random() * (width - 2 * padding),
+                        y: padding + Math.random() * (height - 2 * padding),
+                        angle: 0,
+                        scale: scale,
+                        width: img.width,
+                        height: img.height
+                    });
+                    createImageControls();
+                    render();
+                };
+                img.onerror = () => {
+                    alert('Failed to load image');
+                };
+                img.src = event.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+
         document.getElementById('textFoldIcon').addEventListener('click', () => {
             const foldable = document.getElementById('textFoldable');
             const icon = document.getElementById('textFoldIcon');
@@ -1604,6 +2070,13 @@
             icon.textContent = foldable.classList.contains('collapsed') ? '+' : '−';
         });
 
+        document.getElementById('imagesFoldIcon').addEventListener('click', () => {
+            const foldable = document.getElementById('imagesFoldable');
+            const icon = document.getElementById('imagesFoldIcon');
+            foldable.classList.toggle('collapsed');
+            icon.textContent = foldable.classList.contains('collapsed') ? '+' : '−';
+        });
+
         document.getElementById('helpFoldIcon').addEventListener('click', () => {
             const foldable = document.getElementById('helpFoldable');
             const icon = document.getElementById('helpFoldIcon');
@@ -1613,6 +2086,7 @@
 
         createLineControls();
         createGeometricLineControls();
+        createImageControls();
         updateColorSwatches();
         document.getElementById('vectorizeText').disabled = true;
         render();
