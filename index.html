@@ -577,8 +577,8 @@
             <div class="button-row">
                 <button class="download-btn" id="downloadBtn">DOWNLOAD IMAGE</button>
                 <button class="download-btn" id="exportSvgBtn">EXPORT SVG</button>
-                <button class="download-btn" id="sendToWpBtn" style="display: none;">SEND TO MEDIA LIBRARY</button>
-                <div id="wpDebug" style="display:none; color: red; font-size: 12px; margin-top: 5px;">WP Debug: <span id="wpDebugText"></span></div>
+                <button class="download-btn" id="sendToWpBtn">SEND TO MEDIA LIBRARY</button>
+                <div id="wpDebug" style="display:block; color: red; font-size: 12px; margin-top: 5px;">WP Debug: <span id="wpDebugText">loading...</span></div>
                 <label class="checkbox-label" id="vectorizeLabel">
                     <input type="checkbox" id="vectorizeText"> VECTORIZE TEXT
                     <span class="custom-tooltip" id="vectorizeTooltip">Drop a font file first</span>
@@ -703,25 +703,20 @@
         }
 
         function showWpButton() {
-            console.log('showWpButton called, nonce:', wpConfig.nonce);
             const debugEl = document.getElementById('wpDebug');
             const debugText = document.getElementById('wpDebugText');
             if (debugEl && debugText) {
                 debugEl.style.display = 'block';
-                debugText.textContent = 'nonce=' + wpConfig.nonce + ', postId=' + wpConfig.postId;
+                debugText.textContent = 'nonce=' + wpConfig.nonce + ', postId=' + wpConfig.postId + ', URL=' + window.location.href.substring(0, 100);
             }
+            alert('WP Debug: nonce=' + wpConfig.nonce + ', postId=' + wpConfig.postId);
             if (wpConfig.nonce) {
                 const wpBtn = document.getElementById('sendToWpBtn');
                 if (wpBtn) {
                     wpBtn.style.display = 'inline-block';
                     wpBtn.textContent = wpConfig.buttonLabel;
-                    console.log('Button should now be visible');
                     if (debugEl) debugEl.style.display = 'none';
-                } else {
-                    console.log('Button element not found!');
                 }
-            } else {
-                console.log('No nonce, button hidden');
             }
         }
 
