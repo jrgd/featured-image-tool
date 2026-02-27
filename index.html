@@ -679,10 +679,14 @@
         });
 
         function showWpButton() {
+            console.log('showWpButton called, nonce:', wpConfig.nonce);
             if (wpConfig.nonce) {
                 const wpBtn = document.getElementById('sendToWpBtn');
                 wpBtn.style.display = 'inline-block';
                 wpBtn.textContent = wpConfig.buttonLabel;
+                console.log('Button should now be visible');
+            } else {
+                console.log('No nonce, button hidden');
             }
         }
 
