@@ -577,6 +577,7 @@
             <div class="button-row">
                 <button class="download-btn" id="downloadBtn">DOWNLOAD IMAGE</button>
                 <button class="download-btn" id="exportSvgBtn">EXPORT SVG</button>
+                <button class="download-btn" id="sendToWpBtn" style="display: none;">SEND TO MEDIA LIBRARY</button>
                 <label class="checkbox-label" id="vectorizeLabel">
                     <input type="checkbox" id="vectorizeText"> VECTORIZE TEXT
                     <span class="custom-tooltip" id="vectorizeTooltip">Drop a font file first</span>
@@ -640,6 +641,37 @@
         };
 
         let bgImage = null;
+
+        // WordPress Integration
+        const wpConfig = {
+            nonce: null,
+            postId: null,
+            returnUrl: null,
+            allowedDomains: ['edd.creativecoding.xyz', 'localhost', 'creativecoding.xyz'],
+            buttonLabel: 'SEND TO MEDIA LIBRARY'
+        };
+
+        // Parse URL parameters for WordPress integration
+        (function parseWpParams() {
+            const params = new URLSearchParams(window.location.search);
+            if (params.get('nonce')) wpConfig.nonce = params.get('nonce');
+            if (params.get('post_id')) wpConfig.postId = params.get('post_id');
+            if (params.get('return_url')) wpConfig.returnUrl = params.get('return_url');
+            if (params.get('allowed_domains')) {
+                wpConfig.allowedDomains = params.get('allowed_domains').split(',');
+            }
+            if (params.get('button_label')) wpConfig.buttonLabel = params.get('button_label');
+        })();
+
+        function isValidReturnUrl(url) {
+            if (!url) return true; // Allow if no return_url specified
+            try {
+                const parsed = new URL(url);
+                return wpConfig.allowedDomains.includes(parsed.hostname);
+            } catch (e) {
+                return false;
+            }
+        }
 
         function drawBackgroundImage(ctx, width, height) {
             if (!bgImage) return;
@@ -1259,6 +1291,50 @@
             link.download = 'featured-image.png';
             link.href = canvas.toDataURL('image/png');
             link.click();
+        });
+
+        // WordPress Integration: Send to Media Library
+        document.getElementById('sendToWpBtn').addEventListener('click', () => {
+            if (!wpConfig.nonce) {
+                alert('Invalid nonce - this tool must be opened from WordPress');
+                return;
+            }
+
+            if (!isValidReturnUrl(wpConfig.returnUrl)) {
+                alert('Invalid return URL - domain not allowed');
+                return;
+            }
+
+            const imageData = canvas.toDataURL('image/png');
+            const storageKey = 'wp_import_' + wpConfig.nonce;
+            const importData = {
+                imageData: imageData,
+                nonce: wpConfig.nonce,
+                postId: wpConfig.postId,
+                timestamp: Date.now()
+            };
+
+            try {
+                localStorage.setItem(storageKey, JSON.stringify(importData));
+                
+                // Show feedback
+                const btn = document.getElementById('sendToWpBtn');
+                const originalText = btn.textContent;
+                btn.textContent = 'SENT!';
+                setTimeout(() => {
+                    btn.textContent = originalText;
+                }, 2000);
+
+                // Optionally redirect if return_url specified
+                if (wpConfig.returnUrl) {
+                    setTimeout(() => {
+                        window.location.href = wpConfig.returnUrl;
+                    }, 500);
+                }
+            } catch (e) {
+                alert('Failed to save image. Storage may be full.');
+                console.error(e);
+            }
         });
 
         document.getElementById('saveDesignBtn').addEventListener('click', () => {
@@ -2089,6 +2165,14 @@
         createImageControls();
         updateColorSwatches();
         document.getElementById('vectorizeText').disabled = true;
+
+        // Show WordPress button if nonce is present
+        if (wpConfig.nonce) {
+            const wpBtn = document.getElementById('sendToWpBtn');
+            wpBtn.style.display = 'inline-block';
+            wpBtn.textContent = wpConfig.buttonLabel;
+        }
+
         render();
     </script>
 </body>

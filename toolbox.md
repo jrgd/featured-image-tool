@@ -597,3 +597,146 @@ Based on this toolbox, these tools could be created:
 - `xxxSwatch`, `xxxEditor` for color pickers
 - `xxxDropZone` for file drops
 - `addXxxBtn` for add buttons
+
+---
+
+## WordPress Integration
+
+### Overview
+Tools can integrate with WordPress to import images directly to the Media Library. This is useful for:
+- Featured image creation
+- Bulk image generation
+- Custom image tools for WordPress sites
+
+### Architecture
+
+```
+┌─────────────────────┐     ┌──────────────────────────────────────────┐
+│  WordPress          │     │  Tool (external URL)                     │
+│                     │     │                                          │
+│  ┌───────────────┐  │     │  URL params:                             │
+│  │ Admin Menu   │  │────►│  ?nonce=abc                              │
+│  │ Media Modal  │  │     │  &post_id=123                            │
+│  │ Featured Img│  │     │  &return_url=https://...                 │
+│  └───────┬───────┘  │     │  &allowed_domains=domain.com           │
+│          │          │     │                                          │
+│    ┌─────▼─────┐    │     │  "Send to Media Library" button        │
+│    │ localStg  │◄───┼─────│  → localStorage key: wp_import_{nonce}  │
+│    │ polling   │    │     │                                          │
+│    └─────┬─────┘    │     │                                          │
+│          │          │     │                                          │
+│    AJAX upload     │     │                                          │
+│    to Media Library│     │                                          │
+└─────────────────────┘     └──────────────────────────────────────────┘
+```
+
+### Tool Side: URL Parameters
+
+| Parameter | Required | Description |
+|-----------|----------|-------------|
+| `nonce` | Yes | WordPress nonce for security |
+| `post_id` | No | Post ID to set as featured image |
+| `return_url` | No | URL to redirect after send |
+| `allowed_domains` | No | Comma-separated whitelist for return_url validation |
+| `button_label` | No | Custom label for the send button |
+
+### Tool Side: Implementation
+
+```javascript
+// Configuration
+const wpConfig = {
+    nonce: null,
+    postId: null,
+    returnUrl: null,
+    allowedDomains: ['your-domain.com', 'localhost'],
+    buttonLabel: 'SEND TO MEDIA LIBRARY'
+};
+
+// Parse URL params
+const params = new URLSearchParams(window.location.search);
+if (params.get('nonce')) wpConfig.nonce = params.get('nonce');
+if (params.get('post_id')) wpConfig.postId = params.get('post_id');
+if (params.get('return_url')) wpConfig.returnUrl = params.get('return_url');
+
+// Show button if nonce present
+if (wpConfig.nonce) {
+    document.getElementById('sendToWpBtn').style.display = 'inline-block';
+}
+
+// Save to localStorage on send
+function sendToWordPress() {
+    const imageData = canvas.toDataURL('image/png');
+    const storageKey = 'wp_import_' + wpConfig.nonce;
+    const importData = {
+        imageData: imageData,
+        nonce: wpConfig.nonce,
+        postId: wpConfig.postId,
+        timestamp: Date.now()
+    };
+    localStorage.setItem(storageKey, JSON.stringify(importData));
+}
+```
+
+### WordPress Plugin Requirements
+
+1. **Menu item** - Add to Media Library submenu
+2. **Media tab** - Add "Create Image" tab to media modal
+3. **Import handler** - AJAX endpoint to receive and save image
+4. **localStorage poller** - JavaScript to detect and import
+
+### WordPress Plugin Example
+
+```php
+// AJAX handler
+add_action('wp_ajax_cc_image_tool_import', function() {
+    check_ajax_referer('cc_image_tool_import', 'nonce');
+    
+    $image_data = $_POST['image_data']; // base64
+    $post_id = isset($_POST['post_id']) ? intval($_POST['post_id']) : null;
+    
+    // Decode and upload
+    $data = base64_decode(preg_replace('#^data:image/\w+;base64,#i', '', $image_data));
+    $upload = wp_upload_bits('image-' . time() . '.png', null, $data);
+    
+    // Create attachment
+    $attachment_id = wp_insert_attachment($attachment, $upload['file']);
+    
+    // Optionally set featured image
+    if ($post_id) {
+        update_post_meta($post_id, '_thumbnail_id', $attachment_id);
+    }
+    
+    wp_send_json_success(['attachment_id' => $attachment_id]);
+});
+```
+
+### Security
+
+| Layer | Implementation |
+|-------|----------------|
+| Nonce | WP generates, tool validates & echoes back |
+| Domain validation | Tool validates return_url against whitelist |
+| Capability check | WP checks `upload_files` capability |
+| Single-use | localStorage cleared after import |
+
+---
+
+## Future Features
+
+### Multiple Image Support
+Allow sending multiple images to WordPress in one session:
+- Queue images in localStorage
+- Batch import via AJAX
+- Progress indicator
+
+### Direct postMessage
+Replace localStorage polling with direct window.postMessage:
+- More reliable
+- No timing issues
+- Requires same-origin or explicit message handling
+
+### Tool URL Configuration
+Allow tool URL to be configured via:
+- WordPress filter: `apply_filters('cc_image_tool_url', $url)`
+- PHP constant: `define('CC_IMAGE_TOOL_URL', 'https://...');`
+- Admin settings page
