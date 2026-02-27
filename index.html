@@ -1382,8 +1382,14 @@
                     btn.textContent = originalText;
                 }, 2000);
 
-                // Optionally redirect if return_url specified
-                if (wpConfig.returnUrl) {
+                // Send message to parent window to trigger import check
+                if (window.parent && window.parent !== window) {
+                    // We're in an iframe - tell parent to check for import
+                    window.parent.postMessage({ type: 'cc_image_import_ready' }, '*');
+                }
+
+                // Optionally redirect if return_url specified and NOT in iframe
+                if (wpConfig.returnUrl && window.parent === window) {
                     setTimeout(() => {
                         window.location.href = wpConfig.returnUrl;
                     }, 500);
