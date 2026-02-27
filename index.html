@@ -577,8 +577,7 @@
             <div class="button-row">
                 <button class="download-btn" id="downloadBtn">DOWNLOAD IMAGE</button>
                 <button class="download-btn" id="exportSvgBtn">EXPORT SVG</button>
-                <button class="download-btn" id="sendToWpBtn">SEND TO MEDIA LIBRARY</button>
-                <div id="wpDebug" style="display:block; color: red; font-size: 12px; margin-top: 5px;">WP Debug: <span id="wpDebugText">loading...</span></div>
+                <button class="download-btn" id="sendToWpBtn" style="display: none;">SEND TO MEDIA LIBRARY</button>
                 <label class="checkbox-label" id="vectorizeLabel">
                     <input type="checkbox" id="vectorizeText"> VECTORIZE TEXT
                     <span class="custom-tooltip" id="vectorizeTooltip">Drop a font file first</span>
@@ -654,15 +653,81 @@
 
         // Parse URL parameters for WordPress integration
         (function parseWpParams() {
+            const params = new URLSearchParams(window.location.search);
+            if (params.get('nonce')) wpConfig.nonce = params.get('nonce');
+            if (params.get('post_id')) wpConfig.postId = params.get('post_id');
+            if (params.get('return_url')) wpConfig.returnUrl = params.get('return_url');
+            if (params.get('allowed_domains')) {
+                wpConfig.allowedDomains = params.get('allowed_domains').split(',');
+            }
+            if (params.get('button_label')) wpConfig.buttonLabel = params.get('button_label');
+        })();
+
+        // Try to get nonce from URL hash as fallback
+        (function parseHashParams() {
             try {
-                const params = new URLSearchParams(window.location.search);
-                console.log('URL params:', window.location.search);
-                if (params.get('nonce')) wpConfig.nonce = params.get('nonce');
-                if (params.get('post_id')) wpConfig.postId = params.get('post_id');
-                if (params.get('return_url')) wpConfig.returnUrl = params.get('return_url');
-                if (params.get('allowed_domains')) {
-                    wpConfig.allowedDomains = params.get('allowed_domains').split(',');
+                const hash = window.location.hash.substring(1);
+                if (hash) {
+                    const params = new URLSearchParams(hash);
+                    if (params.get('nonce') && !wpConfig.nonce) {
+                        wpConfig.nonce = params.get('nonce');
+                    }
                 }
+            } catch(e) {}
+        })();
+
+        // Listen for messages from parent window (WordPress)
+        window.addEventListener('message', (e) => {
+            if (e.data && e.data.type === 'wp_config') {
+                if (e.data.nonce) wpConfig.nonce = e.data.nonce;
+                if (e.data.postId) wpConfig.postId = e.data.postId;
+                if (e.data.returnUrl) wpConfig.returnUrl = e.data.returnUrl;
+                if (e.data.allowedDomains) wpConfig.allowedDomains = e.data.allowedDomains;
+                showWpButton();
+            }
+        });
+
+        function showWpButton() {
+            if (wpConfig.nonce) {
+                const wpBtn = document.getElementById('sendToWpBtn');
+                wpBtn.style.display = 'inline-block';
+                wpBtn.textContent = wpConfig.buttonLabel;
+            }
+        }
+            if (params.get('button_label')) wpConfig.buttonLabel = params.get('button_label');
+        })();
+
+        // Try to get nonce from URL hash as fallback
+        (function parseHashParams() {
+            try {
+                const hash = window.location.hash.substring(1);
+                if (hash) {
+                    const params = new URLSearchParams(hash);
+                    if (params.get('nonce') && !wpConfig.nonce) {
+                        wpConfig.nonce = params.get('nonce');
+                    }
+                }
+            } catch(e) {}
+        })();
+
+        // Listen for messages from parent window (WordPress)
+        window.addEventListener('message', (e) => {
+            if (e.data && e.data.type === 'wp_config') {
+                if (e.data.nonce) wpConfig.nonce = e.data.nonce;
+                if (e.data.postId) wpConfig.postId = e.data.postId;
+                if (e.data.returnUrl) wpConfig.returnUrl = e.data.returnUrl;
+                if (e.data.allowedDomains) wpConfig.allowedDomains = e.data.allowedDomains;
+                showWpButton();
+            }
+        });
+
+        function showWpButton() {
+            if (wpConfig.nonce) {
+                const wpBtn = document.getElementById('sendToWpBtn');
+                wpBtn.style.display = 'inline-block';
+                wpBtn.textContent = wpConfig.buttonLabel;
+            }
+        }
                 if (params.get('button_label')) wpConfig.buttonLabel = params.get('button_label');
                 console.log('wpConfig from URL:', wpConfig);
             } catch(e) {
@@ -2231,19 +2296,6 @@
 
         // Show WordPress button if nonce is present
         showWpButton();
-        
-        // Auto-refresh showWpButton every second for 10 seconds (in case postMessage is delayed)
-        let attempts = 0;
-        const buttonCheck = setInterval(() => {
-            attempts++;
-            const wpBtn = document.getElementById('sendToWpBtn');
-            if (wpBtn && wpBtn.style.display !== 'inline-block' && attempts < 10) {
-                console.log('Auto-check attempt:', attempts);
-                showWpButton();
-            } else {
-                clearInterval(buttonCheck);
-            }
-        }, 1000);
 
         render();
     </script>
