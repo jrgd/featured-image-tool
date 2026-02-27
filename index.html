@@ -653,16 +653,34 @@
 
         // Parse URL parameters for WordPress integration
         (function parseWpParams() {
-            const params = new URLSearchParams(window.location.search);
-            console.log('URL params:', window.location.search);
-            if (params.get('nonce')) wpConfig.nonce = params.get('nonce');
-            if (params.get('post_id')) wpConfig.postId = params.get('post_id');
-            if (params.get('return_url')) wpConfig.returnUrl = params.get('return_url');
-            if (params.get('allowed_domains')) {
-                wpConfig.allowedDomains = params.get('allowed_domains').split(',');
+            try {
+                const params = new URLSearchParams(window.location.search);
+                console.log('URL params:', window.location.search);
+                if (params.get('nonce')) wpConfig.nonce = params.get('nonce');
+                if (params.get('post_id')) wpConfig.postId = params.get('post_id');
+                if (params.get('return_url')) wpConfig.returnUrl = params.get('return_url');
+                if (params.get('allowed_domains')) {
+                    wpConfig.allowedDomains = params.get('allowed_domains').split(',');
+                }
+                if (params.get('button_label')) wpConfig.buttonLabel = params.get('button_label');
+                console.log('wpConfig from URL:', wpConfig);
+            } catch(e) {
+                console.error('Error parsing params:', e);
             }
-            if (params.get('button_label')) wpConfig.buttonLabel = params.get('button_label');
-            console.log('wpConfig from URL:', wpConfig);
+        })();
+
+        // Try to get nonce from URL hash as fallback
+        (function parseHashParams() {
+            try {
+                const hash = window.location.hash.substring(1); // Remove #
+                if (hash) {
+                    const params = new URLSearchParams(hash);
+                    if (params.get('nonce') && !wpConfig.nonce) {
+                        wpConfig.nonce = params.get('nonce');
+                        console.log('wpConfig from hash:', wpConfig);
+                    }
+                }
+            } catch(e) {}
         })();
 
         // Listen for messages from parent window (WordPress)
@@ -678,13 +696,22 @@
             }
         });
 
+        // Also check for window.opener (if opened from popup)
+        if (window.opener) {
+            console.log('Has window.opener');
+        }
+
         function showWpButton() {
             console.log('showWpButton called, nonce:', wpConfig.nonce);
             if (wpConfig.nonce) {
                 const wpBtn = document.getElementById('sendToWpBtn');
-                wpBtn.style.display = 'inline-block';
-                wpBtn.textContent = wpConfig.buttonLabel;
-                console.log('Button should now be visible');
+                if (wpBtn) {
+                    wpBtn.style.display = 'inline-block';
+                    wpBtn.textContent = wpConfig.buttonLabel;
+                    console.log('Button should now be visible');
+                } else {
+                    console.log('Button element not found!');
+                }
             } else {
                 console.log('No nonce, button hidden');
             }
