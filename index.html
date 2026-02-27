@@ -578,6 +578,7 @@
                 <button class="download-btn" id="downloadBtn">DOWNLOAD IMAGE</button>
                 <button class="download-btn" id="exportSvgBtn">EXPORT SVG</button>
                 <button class="download-btn" id="sendToWpBtn" style="display: none;">SEND TO MEDIA LIBRARY</button>
+                <div id="wpDebug" style="display:none; color: red; font-size: 12px; margin-top: 5px;">WP Debug: <span id="wpDebugText"></span></div>
                 <label class="checkbox-label" id="vectorizeLabel">
                     <input type="checkbox" id="vectorizeText"> VECTORIZE TEXT
                     <span class="custom-tooltip" id="vectorizeTooltip">Drop a font file first</span>
@@ -703,12 +704,19 @@
 
         function showWpButton() {
             console.log('showWpButton called, nonce:', wpConfig.nonce);
+            const debugEl = document.getElementById('wpDebug');
+            const debugText = document.getElementById('wpDebugText');
+            if (debugEl && debugText) {
+                debugEl.style.display = 'block';
+                debugText.textContent = 'nonce=' + wpConfig.nonce + ', postId=' + wpConfig.postId;
+            }
             if (wpConfig.nonce) {
                 const wpBtn = document.getElementById('sendToWpBtn');
                 if (wpBtn) {
                     wpBtn.style.display = 'inline-block';
                     wpBtn.textContent = wpConfig.buttonLabel;
                     console.log('Button should now be visible');
+                    if (debugEl) debugEl.style.display = 'none';
                 } else {
                     console.log('Button element not found!');
                 }
@@ -2222,6 +2230,19 @@
 
         // Show WordPress button if nonce is present
         showWpButton();
+        
+        // Auto-refresh showWpButton every second for 10 seconds (in case postMessage is delayed)
+        let attempts = 0;
+        const buttonCheck = setInterval(() => {
+            attempts++;
+            const wpBtn = document.getElementById('sendToWpBtn');
+            if (wpBtn && wpBtn.style.display !== 'inline-block' && attempts < 10) {
+                console.log('Auto-check attempt:', attempts);
+                showWpButton();
+            } else {
+                clearInterval(buttonCheck);
+            }
+        }, 1000);
 
         render();
     </script>
