@@ -654,6 +654,7 @@
         // Parse URL parameters for WordPress integration
         (function parseWpParams() {
             const params = new URLSearchParams(window.location.search);
+            console.log('URL params:', window.location.search);
             if (params.get('nonce')) wpConfig.nonce = params.get('nonce');
             if (params.get('post_id')) wpConfig.postId = params.get('post_id');
             if (params.get('return_url')) wpConfig.returnUrl = params.get('return_url');
@@ -661,7 +662,29 @@
                 wpConfig.allowedDomains = params.get('allowed_domains').split(',');
             }
             if (params.get('button_label')) wpConfig.buttonLabel = params.get('button_label');
+            console.log('wpConfig from URL:', wpConfig);
         })();
+
+        // Listen for messages from parent window (WordPress)
+        window.addEventListener('message', (e) => {
+            console.log('Received message:', e.data);
+            if (e.data && e.data.type === 'wp_config') {
+                if (e.data.nonce) wpConfig.nonce = e.data.nonce;
+                if (e.data.postId) wpConfig.postId = e.data.postId;
+                if (e.data.returnUrl) wpConfig.returnUrl = e.data.returnUrl;
+                if (e.data.allowedDomains) wpConfig.allowedDomains = e.data.allowedDomains;
+                console.log('wpConfig from message:', wpConfig);
+                showWpButton();
+            }
+        });
+
+        function showWpButton() {
+            if (wpConfig.nonce) {
+                const wpBtn = document.getElementById('sendToWpBtn');
+                wpBtn.style.display = 'inline-block';
+                wpBtn.textContent = wpConfig.buttonLabel;
+            }
+        }
 
         function isValidReturnUrl(url) {
             if (!url) return true; // Allow if no return_url specified
@@ -2167,11 +2190,7 @@
         document.getElementById('vectorizeText').disabled = true;
 
         // Show WordPress button if nonce is present
-        if (wpConfig.nonce) {
-            const wpBtn = document.getElementById('sendToWpBtn');
-            wpBtn.style.display = 'inline-block';
-            wpBtn.textContent = wpConfig.buttonLabel;
-        }
+        showWpButton();
 
         render();
     </script>
